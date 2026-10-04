@@ -1,0 +1,13 @@
+{
+  "name": "Quản Lý Polime",
+  "short_name": "Polime",
+  "description": "Theo dõi chi tiêu cá nhân theo ngày, tuần, tháng và năm.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#5b67f1",
+  "lang": "vi",
+  "icons": [
+    {"src":"./logo.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

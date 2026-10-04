@@ -1,0 +1,49 @@
+QUẢN LÝ POLIME - CÀI ĐẶT NHANH
+================================
+
+A. Chạy thử ngay
+- Có thể mở bằng Live Server trong VS Code.
+- Khi chưa cấu hình Supabase, app chạy ở chế độ dùng thử và lưu localStorage trên thiết bị.
+
+B. Bật lưu online + đăng ký/đăng nhập/đăng xuất
+1. Tạo tài khoản và project miễn phí tại Supabase.
+2. Vào SQL Editor, tạo query mới, dán TOÀN BỘ nội dung file supabase.sql rồi Run.
+3. Vào Project Settings / API (hoặc mục Connect/API Keys tùy giao diện Supabase).
+4. Lấy Project URL và Publishable key (hoặc anon key của frontend).
+5. Mở config.js và điền:
+   supabaseUrl: "https://xxxxx.supabase.co"
+   supabaseAnonKey: "..."
+6. KHÔNG BAO GIỜ đưa service_role key vào code GitHub hoặc trình duyệt.
+7. Nếu Supabase đang bật Confirm email, người dùng đăng ký cần bấm link xác nhận email trước khi đăng nhập.
+
+C. Đưa lên GitHub Pages
+1. Tạo repository mới trên GitHub, ví dụ: quan-ly-polime
+2. Upload tất cả file trong thư mục này vào nhánh main.
+3. GitHub repository > Settings > Pages.
+4. Source: Deploy from a branch.
+5. Branch: main / (root) > Save.
+6. Chờ GitHub Pages cấp URL. App dùng đường dẫn tương đối nên chạy được ở project subpath.
+
+D. Chức năng đã có
+- Chế độ khách dùng ngay, chưa cần đăng nhập.
+- Đăng ký / đăng nhập / đăng xuất bằng email + mật khẩu khi cấu hình Supabase.
+- Tự đề nghị chuyển dữ liệu dùng thử lên cloud sau lần đăng nhập đầu tiên.
+- Thêm / sửa / xóa chi tiêu.
+- Nhập nhanh: "50000 ăn sáng", "120k xăng xe", "1.2tr mua đồ".
+- Tự đoán một số danh mục từ nội dung nhập nhanh.
+- Thêm / xóa danh mục.
+- Tổng chi theo ngày / tuần / tháng / năm.
+- Tuần tính từ Thứ Hai đến Chủ Nhật.
+- Nút tiến/lùi kỳ và quay về hiện tại.
+- Năm: bấm xem từng tháng; Tháng: bấm xem từng ngày; Tuần: bấm từng ngày.
+- Lịch sử + tìm kiếm + lọc danh mục + khoảng ngày.
+- Biểu đồ 7 ngày và biểu đồ danh mục tháng hiện tại.
+- Light / Dark mode.
+- Responsive điện thoại / máy tính.
+- PWA: có manifest + service worker, có thể Add to Home Screen khi chạy HTTPS.
+- VND.
+- Row Level Security: mỗi tài khoản chỉ được truy cập dữ liệu của chính nó.
+
+E. Lưu ý
+- GitHub Pages chỉ host code tĩnh. Không nên lưu dữ liệu người dùng bằng cách cho frontend ghi trực tiếp vào repository vì sẽ phải lộ token có quyền ghi.
+- Dữ liệu online được lưu ở Supabase PostgreSQL; source code vẫn host hoàn toàn trên GitHub Pages.

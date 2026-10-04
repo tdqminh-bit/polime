@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f7fb" />
+  <meta name="description" content="Quản Lý Polime - Theo dõi chi tiêu cá nhân theo ngày, tuần, tháng và năm." />
+  <title>Quản Lý Polime</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark">P</div>
+        <div>
+          <div class="brand-name">Quản Lý Polime</div>
+          <div class="brand-sub">Chi tiêu rõ ràng hơn mỗi ngày</div>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="Điều hướng chính">
+        <button class="nav-item active" data-view="dashboard"><span>⌂</span><span>Tổng quan</span></button>
+        <button class="nav-item" data-view="day"><span>◷</span><span>Hôm nay</span></button>
+        <button class="nav-item" data-view="week"><span>▦</span><span>Tuần</span></button>
+        <button class="nav-item" data-view="month"><span>▤</span><span>Tháng</span></button>
+        <button class="nav-item" data-view="year"><span>◫</span><span>Năm</span></button>
+        <button class="nav-item" data-view="history"><span>☰</span><span>Lịch sử</span></button>
+        <button class="nav-item" data-view="categories"><span>◇</span><span>Danh mục</span></button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="sync-card" id="syncCard">
+          <span class="status-dot" id="syncDot"></span>
+          <div>
+            <b id="syncTitle">Chế độ dùng thử</b>
+            <small id="syncText">Dữ liệu đang lưu trên thiết bị</small>
+          </div>
+        </div>
+        <button class="secondary-btn full" id="authOpenBtn">Đăng nhập / Đăng ký</button>
+        <button class="secondary-btn full hidden" id="logoutBtn">Đăng xuất</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn menu-btn" id="menuBtn" aria-label="Mở menu">☰</button>
+          <div>
+            <h1 id="viewTitle">Tổng quan</h1>
+            <p id="todayLabel"></p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="themeBtn" aria-label="Đổi giao diện" title="Sáng / Tối">☾</button>
+          <button class="primary-btn" id="addExpenseBtn"><span>＋</span> Thêm chi tiêu</button>
+        </div>
+      </header>
+
+      <section class="view active" id="dashboardView">
+        <div class="stats-grid">
+          <article class="stat-card accent-a"><span>Hôm nay</span><strong id="statDay">0 ₫</strong><small id="statDayCount">0 khoản chi</small></article>
+          <article class="stat-card accent-b"><span>Tuần này</span><strong id="statWeek">0 ₫</strong><small id="statWeekCount">0 khoản chi</small></article>
+          <article class="stat-card accent-c"><span>Tháng này</span><strong id="statMonth">0 ₫</strong><small id="statMonthCount">0 khoản chi</small></article>
+          <article class="stat-card accent-d"><span>Năm nay</span><strong id="statYear">0 ₫</strong><small id="statYearCount">0 khoản chi</small></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <div><h2>Chi tiêu 7 ngày gần nhất</h2><p>So sánh tổng chi từng ngày</p></div>
+            </div>
+            <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+          </article>
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <div><h2>Theo danh mục</h2><p>Tỷ trọng trong tháng hiện tại</p></div>
+            </div>
+            <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+          </article>
+        </div>
+
+        <article class="panel recent-panel">
+          <div class="panel-head">
+            <div><h2>Giao dịch gần đây</h2><p>10 khoản chi mới nhất</p></div>
+            <button class="text-btn" data-jump-view="history">Xem tất cả →</button>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th class="money-col">Số tiền</th><th></th></tr></thead><tbody id="recentBody"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="periodView">
+        <div class="period-toolbar panel">
+          <button class="icon-btn" id="prevPeriodBtn">←</button>
+          <div class="period-label-wrap"><span id="periodEyebrow">Kỳ đang xem</span><strong id="periodLabel"></strong></div>
+          <button class="icon-btn" id="nextPeriodBtn">→</button>
+          <button class="secondary-btn" id="currentPeriodBtn">Hiện tại</button>
+        </div>
+
+        <div class="period-summary">
+          <article class="panel summary-card"><span>Tổng chi</span><strong id="periodTotal">0 ₫</strong></article>
+          <article class="panel summary-card"><span>Số khoản</span><strong id="periodCount">0</strong></article>
+          <article class="panel summary-card"><span>Trung bình</span><strong id="periodAverage">0 ₫</strong></article>
+        </div>
+
+        <article class="panel" id="periodBreakdownPanel">
+          <div class="panel-head"><div><h2 id="breakdownTitle">Chi tiết</h2><p id="breakdownSubtitle">Bấm vào một dòng để xem các khoản chi</p></div></div>
+          <div id="periodBreakdown" class="breakdown-grid"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><h2>Các khoản chi</h2><p id="periodExpenseSubtitle"></p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th class="money-col">Số tiền</th><th></th></tr></thead><tbody id="periodBody"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="historyView">
+        <article class="panel">
+          <div class="panel-head history-head">
+            <div><h2>Lịch sử chi tiêu</h2><p>Tìm và lọc toàn bộ dữ liệu</p></div>
+            <div class="history-filters">
+              <input id="historySearch" class="input" type="search" placeholder="Tìm nội dung..." />
+              <select id="historyCategory" class="input"><option value="">Tất cả danh mục</option></select>
+              <input id="historyFrom" class="input" type="date" />
+              <input id="historyTo" class="input" type="date" />
+            </div>
+          </div>
+          <div class="history-total">Tổng theo bộ lọc: <strong id="historyTotal">0 ₫</strong></div>
+          <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th class="money-col">Số tiền</th><th></th></tr></thead><tbody id="historyBody"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="categoriesView">
+        <article class="panel category-manager">
+          <div class="panel-head"><div><h2>Danh mục chi tiêu</h2><p>Thêm hoặc xóa danh mục của riêng bạn</p></div></div>
+          <form id="categoryForm" class="category-form">
+            <input class="input" id="newCategoryName" maxlength="40" placeholder="Tên danh mục mới" required />
+            <button class="primary-btn" type="submit">＋ Thêm danh mục</button>
+          </form>
+          <div id="categoryList" class="category-list"></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="expenseModal">
+    <div class="modal-card">
+      <div class="modal-head"><div><h2 id="expenseModalTitle">Thêm chi tiêu</h2><p>Ghi lại khoản chi chỉ trong vài giây</p></div><button class="icon-btn" data-close="expenseModal">×</button></div>
+      <form id="expenseForm" class="form-grid">
+        <input type="hidden" id="expenseId" />
+        <label class="field span-2"><span>Nhập nhanh</span><input class="input quick-input" id="quickInput" placeholder="Ví dụ: 50000 ăn sáng hoặc 120k xăng xe" autocomplete="off" /><small>Nhập số tiền + nội dung, hệ thống sẽ điền giúp các ô bên dưới.</small></label>
+        <label class="field"><span>Số tiền (VNĐ)</span><input class="input" id="expenseAmount" inputmode="numeric" placeholder="50.000" required /></label>
+        <label class="field"><span>Danh mục</span><select class="input" id="expenseCategory" required></select></label>
+        <label class="field span-2"><span>Nội dung</span><input class="input" id="expenseNote" maxlength="120" placeholder="Ăn sáng, đổ xăng, mua đồ..." required /></label>
+        <label class="field"><span>Ngày</span><input class="input" type="date" id="expenseDate" required /></label>
+        <label class="field"><span>Giờ</span><input class="input" type="time" id="expenseTime" required /></label>
+        <label class="field span-2"><span>Phương thức thanh toán</span><select class="input" id="expensePayment"><option>Tiền mặt</option><option>Chuyển khoản</option><option>Thẻ</option><option>Ví điện tử</option><option>Khác</option></select></label>
+        <div class="modal-actions span-2"><button type="button" class="secondary-btn" data-close="expenseModal">Hủy</button><button type="submit" class="primary-btn">Lưu khoản chi</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="authModal">
+    <div class="modal-card auth-card">
+      <div class="modal-head"><div><h2>Tài khoản Polime</h2><p>Đăng nhập để lưu và đồng bộ dữ liệu online</p></div><button class="icon-btn" data-close="authModal">×</button></div>
+      <div class="auth-tabs"><button class="auth-tab active" data-auth-tab="login">Đăng nhập</button><button class="auth-tab" data-auth-tab="register">Đăng ký</button></div>
+      <form id="loginForm" class="auth-form">
+        <label class="field"><span>Email</span><input class="input" id="loginEmail" type="email" required autocomplete="email" /></label>
+        <label class="field"><span>Mật khẩu</span><input class="input" id="loginPassword" type="password" minlength="6" required autocomplete="current-password" /></label>
+        <button class="primary-btn full" type="submit">Đăng nhập</button>
+      </form>
+      <form id="registerForm" class="auth-form hidden">
+        <label class="field"><span>Email</span><input class="input" id="registerEmail" type="email" required autocomplete="email" /></label>
+        <label class="field"><span>Mật khẩu</span><input class="input" id="registerPassword" type="password" minlength="6" required autocomplete="new-password" /></label>
+        <label class="field"><span>Nhập lại mật khẩu</span><input class="input" id="registerPassword2" type="password" minlength="6" required autocomplete="new-password" /></label>
+        <button class="primary-btn full" type="submit">Tạo tài khoản</button>
+      </form>
+      <p class="auth-note" id="authNote">Chưa cấu hình Supabase thì ứng dụng vẫn dùng được ở chế độ thử trên máy hiện tại.</p>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="detailModal">
+    <div class="modal-card detail-card">
+      <div class="modal-head"><div><h2 id="detailTitle">Chi tiết</h2><p id="detailSubtitle"></p></div><button class="icon-btn" data-close="detailModal">×</button></div>
+      <div class="detail-total">Tổng: <strong id="detailTotal">0 ₫</strong></div>
+      <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Danh mục</th><th>Nội dung</th><th class="money-col">Số tiền</th></tr></thead><tbody id="detailBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+</body>
+</html>
