@@ -32,7 +32,6 @@
         <button class="nav-item" data-view="week"><span>▦</span><span>Tuần</span></button>
         <button class="nav-item" data-view="month"><span>▤</span><span>Tháng</span></button>
         <button class="nav-item" data-view="year"><span>◫</span><span>Năm</span></button>
-        <button class="nav-item" data-view="bulk"><span>▥</span><span>Nhập dạng bảng</span></button>
         <button class="nav-item" data-view="summary"><span>▦</span><span>Bảng tổng hợp</span></button>
         <button class="nav-item" data-view="history"><span>☰</span><span>Lịch sử</span></button>
         <button class="nav-item" data-view="categories"><span>◇</span><span>Danh mục</span></button>
@@ -41,9 +40,10 @@
       <div class="sidebar-bottom">
         <div class="sync-card" id="syncCard">
           <span class="status-dot" id="syncDot"></span>
-          <div>
+          <div class="sync-copy">
             <b id="syncTitle">Chế độ dùng thử</b>
             <small id="syncText">Dữ liệu đang lưu trên thiết bị</small>
+            <small class="sync-meta" id="syncMeta">Supabase Free • chưa cấu hình</small>
           </div>
         </div>
         <button class="secondary-btn full" id="authOpenBtn">Đăng nhập / Đăng ký</button>
@@ -62,8 +62,7 @@
         </div>
         <div class="topbar-actions">
           <button class="icon-btn" id="themeBtn" aria-label="Đổi giao diện" title="Sáng / Tối">☾</button>
-          <button class="secondary-btn top-bulk-btn" id="openBulkBtn"><span>▥</span> Nhập bảng</button>
-          <button class="primary-btn" id="addExpenseBtn"><span>＋</span> Thêm chi tiêu</button>
+          <button class="primary-btn add-expense-main" id="addExpenseBtn"><span>＋</span> Nhập thêm</button>
         </div>
       </header>
 
@@ -124,32 +123,6 @@
         </article>
       </section>
 
-      <section class="view" id="bulkView">
-        <article class="panel sheet-panel">
-          <div class="panel-head sheet-head">
-            <div><h2>Nhập chi tiêu dạng bảng</h2><p>Nhập nhiều khoản cùng lúc như Excel rồi lưu tất cả một lần</p></div>
-            <div class="sheet-actions">
-              <button class="secondary-btn" id="bulkGenerateBtn">Tạo mẫu theo kỳ</button>
-              <button class="primary-btn" id="bulkSaveBtn">Lưu tất cả</button>
-            </div>
-          </div>
-          <div class="sheet-toolbar">
-            <label><span>Kiểu nhập</span><select class="input" id="bulkMode"><option value="day">Theo ngày</option><option value="week">Theo tuần</option><option value="month">Theo tháng</option><option value="year">Theo năm</option></select></label>
-            <label><span>Ngày tham chiếu</span><input class="input" id="bulkAnchor" type="date" /></label>
-            <div class="sheet-period-info"><span>Kỳ đang nhập</span><strong id="bulkPeriodLabel"></strong></div>
-            <button class="secondary-btn" id="bulkAddRowBtn">＋ Thêm dòng</button>
-          </div>
-          <div class="excel-wrap">
-            <table class="excel-table bulk-table">
-              <thead><tr><th>#</th><th>Ngày</th><th>Giờ</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th>Số tiền (VNĐ)</th><th></th></tr></thead>
-              <tbody id="bulkBody"></tbody>
-              <tfoot><tr><th colspan="6">TỔNG ĐANG NHẬP</th><th id="bulkDraftTotal" class="amount-cell">0 ₫</th><th></th></tr></tfoot>
-            </table>
-          </div>
-          <div class="sheet-footnote">Các dòng không có số tiền sẽ được bỏ qua. Ngày nhập phải nằm trong kỳ đã chọn.</div>
-        </article>
-      </section>
-
       <section class="view" id="summaryView">
         <article class="panel sheet-panel">
           <div class="panel-head sheet-head">
@@ -203,9 +176,65 @@
     </main>
   </div>
 
+
+  <div class="modal-backdrop hidden sheet-entry-backdrop" id="entrySheetModal">
+    <div class="modal-card sheet-entry-card">
+      <div class="modal-head entry-modal-head">
+        <div>
+          <div class="eyebrow-chip">NHẬP NHANH KIỂU EXCEL</div>
+          <h2>Nhập thêm chi tiêu</h2>
+          <p>Dòng đầu là thời gian. Các dòng dưới chỉ cần nhập số tiền; Tổng chi luôn tự nằm ở dòng cuối.</p>
+        </div>
+        <button class="icon-btn" data-close="entrySheetModal" aria-label="Đóng">×</button>
+      </div>
+
+      <div class="entry-controls">
+        <div class="entry-mode-tabs" id="entryModeTabs" aria-label="Kiểu bảng nhập">
+          <button class="entry-mode-btn" data-entry-mode="day">Ngày</button>
+          <button class="entry-mode-btn active" data-entry-mode="week">Tuần</button>
+          <button class="entry-mode-btn" data-entry-mode="month">Tháng</button>
+          <button class="entry-mode-btn" data-entry-mode="year">Năm</button>
+        </div>
+        <div class="entry-period-nav">
+          <button class="icon-btn compact" id="entryPrevBtn" aria-label="Kỳ trước">←</button>
+          <label class="entry-anchor-wrap"><span>Ngày tham chiếu</span><input class="input" id="entryAnchor" type="date" /></label>
+          <button class="icon-btn compact" id="entryNextBtn" aria-label="Kỳ sau">→</button>
+          <div class="entry-period-copy"><span>Kỳ đang nhập</span><strong id="entryPeriodLabel"></strong></div>
+        </div>
+        <div class="entry-defaults">
+          <label><span>Danh mục</span><select class="input" id="entryCategory"></select></label>
+          <label><span>Thanh toán</span><select class="input" id="entryPayment"><option>Tiền mặt</option><option>Chuyển khoản</option><option>Thẻ</option><option>Ví điện tử</option><option>Khác</option></select></label>
+        </div>
+      </div>
+
+      <div class="entry-sheet-shell">
+        <div class="entry-sheet-scroll" id="entrySheetScroll">
+          <table class="entry-sheet-table" id="entrySheetTable">
+            <thead id="entrySheetHead"></thead>
+            <tbody id="entrySheetBody"></tbody>
+            <tfoot id="entrySheetFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="entry-hints">
+        <span><kbd>Enter</kbd> xuống ô cùng cột</span>
+        <span><kbd>Tab</kbd> sang ô kế</span>
+        <span>Dán trực tiếp nhiều ô từ Excel/Sheets</span>
+        <span id="entryYearHint" class="hidden">Chế độ Năm lưu mỗi cột tháng vào ngày 01 của tháng đó.</span>
+      </div>
+      <div class="entry-sheet-actions">
+        <div class="entry-grand-total">Tổng toàn bảng <strong id="entryGrandTotal">0 ₫</strong></div>
+        <div class="entry-action-buttons">
+          <button class="secondary-btn" type="button" id="entryClearBtn">Xóa số đang nhập</button>
+          <button class="primary-btn save-sheet-btn" type="button" id="entrySaveBtn"><span>✓</span> Lưu tất cả</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="modal-backdrop hidden" id="expenseModal">
     <div class="modal-card">
-      <div class="modal-head"><div><h2 id="expenseModalTitle">Thêm chi tiêu</h2><p>Ghi lại khoản chi chỉ trong vài giây</p></div><button class="icon-btn" data-close="expenseModal">×</button></div>
+      <div class="modal-head"><div><h2 id="expenseModalTitle">Sửa chi tiêu</h2><p>Chỉnh sửa chi tiết khoản chi đã lưu</p></div><button class="icon-btn" data-close="expenseModal">×</button></div>
       <form id="expenseForm" class="form-grid">
         <input type="hidden" id="expenseId" />
         <label class="field span-2"><span>Nhập nhanh</span><input class="input quick-input" id="quickInput" placeholder="Ví dụ: 50000 ăn sáng hoặc 120k xăng xe" autocomplete="off" /><small>Nhập số tiền + nội dung, hệ thống sẽ điền giúp các ô bên dưới.</small></label>
@@ -222,7 +251,8 @@
 
   <div class="modal-backdrop hidden" id="authModal">
     <div class="modal-card auth-card">
-      <div class="modal-head"><div><h2>Tài khoản Polime</h2><p>Đăng nhập để lưu và đồng bộ dữ liệu online</p></div><button class="icon-btn" data-close="authModal">×</button></div>
+      <div class="modal-head"><div><h2>Tài khoản Polime</h2><p>Đăng nhập để lưu chi tiêu trực tiếp trên server</p></div><button class="icon-btn" data-close="authModal">×</button></div>
+      <div class="server-badge"><span class="status-dot online"></span><div><b>Supabase Free</b><small>PostgreSQL + Auth + Row Level Security</small></div></div>
       <div class="auth-tabs"><button class="auth-tab active" data-auth-tab="login">Đăng nhập</button><button class="auth-tab" data-auth-tab="register">Đăng ký</button></div>
       <form id="loginForm" class="auth-form">
         <label class="field"><span>Email</span><input class="input" id="loginEmail" type="email" required autocomplete="email" /></label>

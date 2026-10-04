@@ -1,9 +1,8 @@
-// CẤU HÌNH SUPABASE
-// 1) Tạo project tại https://supabase.com
-// 2) Chạy file supabase.sql trong SQL Editor
-// 3) Điền Project URL và Publishable/Anon key vào đây.
-// LƯU Ý: Chỉ dùng publishable/anon key ở frontend. KHÔNG BAO GIỜ điền service_role key.
+// QUẢN LÝ POLIME - SUPABASE FREE
+// Cấu hình server đã được nhúng sẵn cho project này.
+// Publishable key được phép dùng ở frontend khi RLS đã bật đúng.
+// KHÔNG thay bằng service_role/secret key.
 window.POLIME_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: ""
+  supabaseUrl: "https://ccblapqvstdosjoqjxux.supabase.co",
+  supabaseAnonKey: "sb_publishable_pqtEDLJccj0nH6RdZamUsg_cAwmSBpN"
 };

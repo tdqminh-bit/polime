@@ -26,10 +26,13 @@ const state = {
   periodMode: 'day',
   periodCursor: new Date(),
   charts: {daily:null, category:null},
-  bulkMode: 'day',
-  bulkCursor: new Date(),
+  entryMode: 'week',
+  entryCursor: new Date(),
+  entryBuckets: [],
   summaryMode: 'day',
-  summaryCursor: new Date()
+  summaryCursor: new Date(),
+  syncState: 'guest',
+  lastSyncAt: null
 };
 
 const cfg = window.POLIME_CONFIG || {};
@@ -78,56 +81,74 @@ function loadGuest(){
 }
 
 async function initAuth(){
-  if(!state.supabase){ loadGuest(); updateSyncUI(); return; }
-  const {data:{session}} = await state.supabase.auth.getSession();
-  if(session?.user) await enterCloud(session.user); else { loadGuest(); updateSyncUI(); }
+  if(!state.supabase){ state.syncState='unconfigured'; loadGuest(); updateSyncUI(); return; }
+  const {data:{session},error} = await state.supabase.auth.getSession();
+  if(error){ state.syncState='error'; loadGuest(); updateSyncUI(); toast('Không thể kiểm tra phiên đăng nhập trên server.','error'); }
+  else if(session?.user) await enterCloud(session.user);
+  else { state.syncState='guest'; loadGuest(); updateSyncUI(); }
   state.supabase.auth.onAuthStateChange(async (event,session)=>{
     if(event==='SIGNED_IN' && session?.user && state.mode!=='cloud') await enterCloud(session.user,true);
-    if(event==='SIGNED_OUT'){ state.user=null; state.mode='guest'; loadGuest(); updateSyncUI(); renderAll(); }
+    if(event==='SIGNED_OUT'){ state.user=null; state.mode='guest'; state.syncState='guest'; state.lastSyncAt=null; loadGuest(); updateSyncUI(); renderAll(); }
   });
 }
 
 async function enterCloud(user, offerMigration=false){
   const guestExpenses = (()=>{try{return JSON.parse(localStorage.getItem(STORAGE_EXPENSES)||'[]')}catch{return[]}})();
   const guestCategories = (()=>{try{return JSON.parse(localStorage.getItem(STORAGE_CATEGORIES)||'[]')}catch{return[]}})();
-  state.user=user; state.mode='cloud';
-  await loadCloud();
-  if(offerMigration && guestExpenses.length && confirm(`Bạn đang có ${guestExpenses.length} khoản chi ở chế độ dùng thử. Đồng bộ chúng lên tài khoản này?`)){
-    await migrateGuestToCloud(guestExpenses,guestCategories);
+  state.user=user; state.mode='cloud'; state.syncState='syncing'; updateSyncUI();
+  try{
     await loadCloud();
-    localStorage.removeItem(STORAGE_EXPENSES); localStorage.removeItem(STORAGE_CATEGORIES);
+    if(offerMigration && guestExpenses.length && confirm(`Bạn đang có ${guestExpenses.length} khoản chi ở chế độ dùng thử. Đồng bộ chúng lên tài khoản này?`)){
+      await migrateGuestToCloud(guestExpenses,guestCategories);
+      await loadCloud();
+      localStorage.removeItem(STORAGE_EXPENSES); localStorage.removeItem(STORAGE_CATEGORIES);
+    }
+    updateSyncUI(); renderAll(); closeModal('authModal'); toast('Đã đăng nhập. Dữ liệu đang lưu trên Supabase Free.','success');
+  }catch(err){
+    state.syncState='error'; updateSyncUI(); toast(err.message||'Không thể đồng bộ dữ liệu với server.','error');
   }
-  updateSyncUI(); renderAll(); closeModal('authModal'); toast('Đã đăng nhập và bật đồng bộ online.','success');
 }
 
 async function loadCloud(){
+  state.syncState='syncing'; updateSyncUI();
   const [{data:cats,error:ce},{data:exps,error:ee}] = await Promise.all([
     state.supabase.from('categories').select('*').order('created_at',{ascending:true}),
     state.supabase.from('expenses').select('*').order('spent_on',{ascending:false}).order('spent_time',{ascending:false})
   ]);
-  if(ce||ee){ toast((ce||ee).message,'error'); return; }
+  if(ce||ee){ state.syncState='error'; updateSyncUI(); throw (ce||ee); }
   if(!cats.length){
     const payload=DEFAULT_CATEGORIES.map(name=>({user_id:state.user.id,name,is_default:true}));
-    const {error}=await state.supabase.from('categories').insert(payload); if(error) toast(error.message,'error');
-    const {data}=await state.supabase.from('categories').select('*').order('created_at'); state.categories=data||[];
+    const {error}=await state.supabase.from('categories').insert(payload); if(error) throw error;
+    const {data,error:reloadError}=await state.supabase.from('categories').select('*').order('created_at');
+    if(reloadError) throw reloadError; state.categories=data||[];
   } else state.categories=cats;
-  state.expenses=exps||[];
+  state.expenses=exps||[]; state.syncState='online'; state.lastSyncAt=new Date(); updateSyncUI();
 }
 
 async function migrateGuestToCloud(expenses,categories){
   const existingNames=new Set(state.categories.map(c=>c.name.toLowerCase()));
   const missing=(categories||[]).filter(c=>!existingNames.has(c.name.toLowerCase())).map(c=>({user_id:state.user.id,name:c.name,is_default:!!c.is_default}));
-  if(missing.length) await state.supabase.from('categories').insert(missing);
-  const payload=expenses.map(e=>({user_id:state.user.id,amount:Number(e.amount),category:e.category,note:e.note||'',payment_method:e.payment_method||'Tiền mặt',spent_on:e.spent_on,spent_time:e.spent_time||'12:00'}));
-  if(payload.length){ const {error}=await state.supabase.from('expenses').insert(payload); if(error) toast(error.message,'error'); }
+  if(missing.length){ const {error}=await state.supabase.from('categories').upsert(missing,{onConflict:'user_id,name',ignoreDuplicates:true}); if(error) throw error; }
+  const payload=expenses.map(e=>({user_id:state.user.id,client_ref:String(e.id||uid()),amount:Number(e.amount),category:e.category,note:e.note||'',payment_method:e.payment_method||'Tiền mặt',spent_on:e.spent_on,spent_time:e.spent_time||'12:00'}));
+  if(payload.length){ const {error}=await state.supabase.from('expenses').upsert(payload,{onConflict:'user_id,client_ref',ignoreDuplicates:true}); if(error) throw error; }
 }
 
 function updateSyncUI(){
-  const cloud=state.mode==='cloud'; $('#syncDot').classList.toggle('online',cloud); $('#syncTitle').textContent=cloud?'Đã đồng bộ online':'Chế độ dùng thử'; $('#syncText').textContent=cloud?(state.user?.email||'Supabase'):'Dữ liệu đang lưu trên thiết bị'; $('#authOpenBtn').classList.toggle('hidden',cloud); $('#logoutBtn').classList.toggle('hidden',!cloud);
-  $('#authNote').textContent = cloudConfigured ? 'Tài khoản dùng Supabase Auth. Sau khi đăng nhập, dữ liệu của mỗi tài khoản được tách riêng.' : 'Supabase chưa được cấu hình. Hãy điền URL và anon/publishable key trong config.js để bật đăng ký, đăng nhập và đồng bộ online.';
+  const dot=$('#syncDot'); if(!dot) return; const cloud=state.mode==='cloud';
+  dot.classList.remove('online','syncing','error');
+  if(state.syncState==='online') dot.classList.add('online');
+  else if(state.syncState==='syncing') dot.classList.add('syncing');
+  else if(state.syncState==='error') dot.classList.add('error');
+  if(state.syncState==='unconfigured'){ $('#syncTitle').textContent='Chưa kết nối server'; $('#syncText').textContent='Đang dùng bộ nhớ thiết bị'; $('#syncMeta').textContent='Supabase Free • cần cấu hình'; }
+  else if(state.syncState==='syncing'){ $('#syncTitle').textContent='Đang đồng bộ…'; $('#syncText').textContent=state.user?.email||'Supabase Free'; $('#syncMeta').textContent='Đang ghi/đọc dữ liệu từ server'; }
+  else if(state.syncState==='error'){ $('#syncTitle').textContent='Lỗi kết nối server'; $('#syncText').textContent=cloud?(state.user?.email||'Supabase Free'):'Dữ liệu tạm ở thiết bị'; $('#syncMeta').textContent=navigator.onLine?'Kiểm tra cấu hình hoặc quyền RLS':'Thiết bị đang offline'; }
+  else if(cloud){ const t=state.lastSyncAt?state.lastSyncAt.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'vừa xong'; $('#syncTitle').textContent='Đã lưu trên server'; $('#syncText').textContent=state.user?.email||'Supabase'; $('#syncMeta').textContent=`Supabase Free • đồng bộ ${t}`; }
+  else { $('#syncTitle').textContent='Chưa đăng nhập'; $('#syncText').textContent='Dữ liệu hiện chỉ ở thiết bị'; $('#syncMeta').textContent=cloudConfigured?'Supabase Free • sẵn sàng':'Supabase Free • chưa cấu hình'; }
+  $('#authOpenBtn').classList.toggle('hidden',cloud); $('#logoutBtn').classList.toggle('hidden',!cloud);
+  $('#authNote').textContent = cloudConfigured ? 'Server: Supabase Free. Khi đăng nhập, mọi khoản chi và danh mục được lưu vào PostgreSQL; RLS tách dữ liệu theo từng tài khoản.' : 'Chưa cấu hình server. Điền Project URL và Publishable/Anon key trong config.js, sau đó chạy supabase.sql trên Supabase để bật lưu online.';
 }
 
-function renderAll(){ renderCategoriesInForms(); renderDashboard(); renderPeriod(); renderHistory(); renderCategoryManager(); renderSummary(); refreshBulkCategoryOptions(); }
+function renderAll(){ renderCategoriesInForms(); renderDashboard(); renderPeriod(); renderHistory(); renderCategoryManager(); renderSummary(); refreshEntryCategoryOptions(); }
 function getRange(mode,cursor){ if(mode==='day') return [startOfDay(cursor),endOfDay(cursor)]; if(mode==='week') return [startOfWeek(cursor),endOfWeek(cursor)]; if(mode==='month') return [startOfMonth(cursor),endOfMonth(cursor)]; return [startOfYear(cursor),endOfYear(cursor)]; }
 function listFor(mode,cursor){ const [a,b]=getRange(mode,cursor); return state.expenses.filter(e=>within(e,a,b)); }
 function pluralCount(n){ return `${n} khoản chi`; }
@@ -174,6 +195,7 @@ function renderHistory(){
 function renderCategoriesInForms(){
   const current=$('#expenseCategory').value; $('#expenseCategory').innerHTML=state.categories.map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join(''); if(state.categories.some(c=>c.name===current)) $('#expenseCategory').value=current;
   const hc=$('#historyCategory'),hcv=hc.value; hc.innerHTML='<option value="">Tất cả danh mục</option>'+state.categories.map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join(''); hc.value=hcv;
+  refreshEntryCategoryOptions();
 }
 function renderCategoryManager(){ const counts={}; state.expenses.forEach(e=>counts[e.category]=(counts[e.category]||0)+1); $('#categoryList').innerHTML=state.categories.map(c=>`<div class="category-item"><div><b>${escapeHtml(c.name)}</b><small>${pluralCount(counts[c.name]||0)}</small></div><button class="row-btn" data-delete-category="${c.id}" title="Xóa danh mục">×</button></div>`).join(''); }
 function showDetail(title,items){ $('#detailTitle').textContent=title; $('#detailSubtitle').textContent=pluralCount(items.length); $('#detailTotal').textContent=money(sum(items)); const body=$('#detailBody'); if(!items.length) body.innerHTML='<tr><td class="empty-cell" colspan="4">Không có khoản chi.</td></tr>'; else body.innerHTML=[...items].sort((a,b)=>expenseDate(b)-expenseDate(a)).map(e=>`<tr><td>${escapeHtml(dateLabel(e))}</td><td><span class="category-pill">${escapeHtml(e.category)}</span></td><td>${escapeHtml(e.note)}</td><td class="amount-cell">${money(e.amount)}</td></tr>`).join(''); openModal('detailModal'); }
@@ -181,7 +203,7 @@ function showDetail(title,items){ $('#detailTitle').textContent=title; $('#detai
 async function saveExpense(data,id=''){
   if(state.mode==='cloud'){
     if(id){ const {error}=await state.supabase.from('expenses').update(data).eq('id',id); if(error) throw error; }
-    else { const {error}=await state.supabase.from('expenses').insert({...data,user_id:state.user.id}); if(error) throw error; }
+    else { const {error}=await state.supabase.from('expenses').insert({...data,user_id:state.user.id,client_ref:uid()}); if(error) throw error; }
     await loadCloud();
   } else {
     if(id){ const i=state.expenses.findIndex(e=>e.id===id); if(i>=0) state.expenses[i]={...state.expenses[i],...data}; }
@@ -218,66 +240,152 @@ function parseQuick(v){
 
 
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
-function clampDateToRange(d,a,b){ return d<a?new Date(a):d>b?new Date(b):new Date(d); }
-function modeRangeLabel(mode,cursor){ return periodLabel(mode,cursor); }
-function bulkDefaultDate(){
-  const [a,b]=getRange(state.bulkMode,state.bulkCursor); return localISODate(clampDateToRange(new Date(),a,b));
-}
 function categoryOptions(selected=''){
   return state.categories.map(c=>`<option value="${escapeHtml(c.name)}" ${c.name===selected?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
 }
-function paymentOptions(selected='Tiền mặt'){
-  return ['Tiền mặt','Chuyển khoản','Thẻ','Ví điện tử','Khác'].map(x=>`<option ${x===selected?'selected':''}>${x}</option>`).join('');
+
+function entryBucketLabel(d, mode){
+  if(mode==='year') return `Tháng ${String(d.getMonth()+1).padStart(2,'0')}<small>${d.getFullYear()}</small>`;
+  const weekday=new Intl.DateTimeFormat('vi-VN',{weekday:'short'}).format(d);
+  const date=new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
+  return `${weekday}<small>${date}</small>`;
 }
-function bulkRowHTML(date=bulkDefaultDate(), index=1){
-  const now=new Date(),tm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  return `<tr class="bulk-row"><td class="row-number">${index}</td><td><input class="sheet-input bulk-date" type="date" value="${date}"></td><td><input class="sheet-input bulk-time" type="time" value="${tm}"></td><td><select class="sheet-input bulk-category">${categoryOptions(state.categories[0]?.name||'')}</select></td><td><input class="sheet-input bulk-note" maxlength="120" placeholder="Nội dung chi tiêu"></td><td><select class="sheet-input bulk-payment">${paymentOptions()}</select></td><td><input class="sheet-input bulk-amount money-input" inputmode="numeric" placeholder="0"></td><td><button class="row-btn bulk-remove" title="Xóa dòng">×</button></td></tr>`;
+function buildEntryBuckets(mode,c){
+  if(mode==='day') return [{date:new Date(c), spent_on:localISODate(c), label:entryBucketLabel(c,mode)}];
+  if(mode==='week'){
+    const s=startOfWeek(c);
+    return Array.from({length:7},(_,i)=>{const d=addDays(s,i);return {date:d,spent_on:localISODate(d),label:entryBucketLabel(d,mode)}});
+  }
+  if(mode==='month'){
+    const days=new Date(c.getFullYear(),c.getMonth()+1,0).getDate();
+    return Array.from({length:days},(_,i)=>{const d=new Date(c.getFullYear(),c.getMonth(),i+1);return {date:d,spent_on:localISODate(d),label:entryBucketLabel(d,mode)}});
+  }
+  return Array.from({length:12},(_,m)=>{const d=new Date(c.getFullYear(),m,1);return {date:d,spent_on:localISODate(d),label:entryBucketLabel(d,mode)}});
 }
-function renumberBulkRows(){ $$('#bulkBody .bulk-row').forEach((tr,i)=>{ const n=$('.row-number',tr); if(n)n.textContent=i+1; }); }
-function addBulkRow(date=bulkDefaultDate()){ $('#bulkBody').insertAdjacentHTML('beforeend',bulkRowHTML(date,$$('#bulkBody .bulk-row').length+1)); updateBulkDraftTotal(); }
-function clearBulkRows(){ $('#bulkBody').innerHTML=''; }
-function generateBulkTemplate(){
-  clearBulkRows(); const c=state.bulkCursor,mode=state.bulkMode;
-  if(mode==='day'){ for(let i=0;i<5;i++) addBulkRow(localISODate(c)); }
-  else if(mode==='week'){ const s=startOfWeek(c); for(let i=0;i<7;i++) addBulkRow(localISODate(addDays(s,i))); }
-  else if(mode==='month'){ const days=new Date(c.getFullYear(),c.getMonth()+1,0).getDate(); for(let i=1;i<=days;i++) addBulkRow(localISODate(new Date(c.getFullYear(),c.getMonth(),i))); }
-  else { for(let m=0;m<12;m++) addBulkRow(localISODate(new Date(c.getFullYear(),m,1))); }
-  updateBulkDraftTotal();
+function entryPeriodLabel(mode,c){
+  if(mode==='day') return new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}).format(c);
+  if(mode==='week'){
+    const a=startOfWeek(c),b=endOfWeek(c);
+    const f=new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+    return `${f.format(a)} – ${f.format(b)}`;
+  }
+  if(mode==='month') return `Tháng ${c.getMonth()+1}/${c.getFullYear()}`;
+  return `Năm ${c.getFullYear()}`;
 }
-function updateBulkPeriodUI(){
-  $('#bulkPeriodLabel').textContent=modeRangeLabel(state.bulkMode,state.bulkCursor);
+function refreshEntryCategoryOptions(){
+  const sel=$('#entryCategory'); if(!sel) return;
+  const current=sel.value;
+  sel.innerHTML=categoryOptions(current);
+  if(state.categories.some(c=>c.name===current)) sel.value=current;
+  else if(state.categories.length) sel.value=state.categories.find(c=>c.name==='Khác')?.name || state.categories[0].name;
 }
-function updateBulkDraftTotal(){
-  const total=$$('#bulkBody .bulk-amount').reduce((a,x)=>a+parseAmount(x.value),0); $('#bulkDraftTotal').textContent=money(total);
+function entryRowHTML(index){
+  return `<tr class="entry-data-row" data-row="${index}"><th class="entry-row-index">${index+2}</th>${state.entryBuckets.map((b,col)=>`<td><input class="entry-amount" data-col="${col}" data-date="${b.spent_on}" inputmode="numeric" autocomplete="off" aria-label="Số tiền ${b.spent_on}" placeholder="0"></td>`).join('')}</tr>`;
 }
-function refreshBulkCategoryOptions(){
-  $$('#bulkBody .bulk-category').forEach(sel=>{ const v=sel.value; sel.innerHTML=categoryOptions(v); if(state.categories.some(c=>c.name===v)) sel.value=v; });
+function addEntryRow(){
+  const body=$('#entrySheetBody');
+  const index=$$('#entrySheetBody .entry-data-row').length;
+  body.insertAdjacentHTML('beforeend',entryRowHTML(index));
+  updateEntryTotals();
 }
-function readBulkRows(){
-  const [a,b]=getRange(state.bulkMode,state.bulkCursor); const out=[]; let invalidDate=false;
-  $$('#bulkBody .bulk-row').forEach(tr=>{
-    const amount=parseAmount($('.bulk-amount',tr).value); if(!amount) return;
-    const spent_on=$('.bulk-date',tr).value, d=parseDateOnly(spent_on); if(d<a||d>b) invalidDate=true;
-    out.push({amount,category:$('.bulk-category',tr).value,note:$('.bulk-note',tr).value.trim()||'Chi tiêu',payment_method:$('.bulk-payment',tr).value,spent_on,spent_time:$('.bulk-time',tr).value||'12:00'});
+function resetEntrySheet(){
+  state.entryBuckets=buildEntryBuckets(state.entryMode,state.entryCursor);
+  $('#entryAnchor').value=localISODate(state.entryCursor);
+  $('#entryPeriodLabel').textContent=entryPeriodLabel(state.entryMode,state.entryCursor);
+  $$('.entry-mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.entryMode===state.entryMode));
+  $('#entryYearHint').classList.toggle('hidden',state.entryMode!=='year');
+  $('#entrySheetHead').innerHTML=`<tr><th class="entry-corner">Dòng</th>${state.entryBuckets.map(b=>`<th class="entry-date-head">${b.label}</th>`).join('')}</tr>`;
+  $('#entrySheetBody').innerHTML='';
+  addEntryRow(); addEntryRow();
+  updateEntryTotals();
+  const scroller=$('#entrySheetScroll'); if(scroller) scroller.scrollLeft=0;
+}
+function entryHasValues(){ return $$('.entry-amount').some(i=>parseAmount(i.value)>0); }
+function ensureTrailingEntryRow(){
+  const rows=$$('#entrySheetBody .entry-data-row'); if(!rows.length) return addEntryRow();
+  const last=rows.at(-1);
+  if($$('.entry-amount',last).some(i=>parseAmount(i.value)>0)) addEntryRow();
+}
+function updateEntryTotals(){
+  const cols=state.entryBuckets.length;
+  const totals=Array.from({length:cols},()=>0);
+  $$('#entrySheetBody .entry-data-row').forEach(row=>{
+    $$('.entry-amount',row).forEach((input,i)=>totals[i]+=parseAmount(input.value));
   });
-  if(invalidDate) throw new Error('Có ngày nằm ngoài kỳ đang chọn. Hãy sửa ngày hoặc đổi kỳ nhập.');
-  return out;
+  const rowCount=$$('#entrySheetBody .entry-data-row').length;
+  $('#entrySheetFoot').innerHTML=`<tr class="entry-total-row"><th class="entry-total-label">${rowCount+2} · TỔNG CHI</th>${totals.map(v=>`<th>${money(v)}</th>`).join('')}</tr>`;
+  $('#entryGrandTotal').textContent=money(totals.reduce((a,v)=>a+v,0));
 }
-async function saveBulkRows(){
-  let rows; try{ rows=readBulkRows(); }catch(e){ return toast(e.message,'error'); }
-  if(!rows.length) return toast('Chưa có dòng nào có số tiền để lưu.','error');
-  const btn=$('#bulkSaveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
+function formatEntryInput(input){
+  const n=parseAmount(input.value); input.value=n?new Intl.NumberFormat('vi-VN').format(n):'';
+}
+function moveEntryPeriod(dir){
+  const d=new Date(state.entryCursor),m=state.entryMode;
+  if(m==='day') d.setDate(d.getDate()+dir);
+  else if(m==='week') d.setDate(d.getDate()+7*dir);
+  else if(m==='month') d.setMonth(d.getMonth()+dir);
+  else d.setFullYear(d.getFullYear()+dir);
+  state.entryCursor=d; resetEntrySheet();
+}
+function openEntrySheet(){
+  state.entryCursor=new Date();
+  refreshEntryCategoryOptions();
+  resetEntrySheet();
+  openModal('entrySheetModal');
+  setTimeout(()=>$('#entrySheetBody .entry-amount')?.focus(),220);
+}
+function readEntryRows(){
+  const category=$('#entryCategory').value || state.categories[0]?.name || 'Khác';
+  const payment_method=$('#entryPayment').value || 'Tiền mặt';
+  const now=new Date();
+  const spent_time=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const rows=[];
+  $$('#entrySheetBody .entry-data-row').forEach((tr,rowIndex)=>{
+    $$('.entry-amount',tr).forEach((input,colIndex)=>{
+      const amount=parseAmount(input.value); if(!amount) return;
+      const bucket=state.entryBuckets[colIndex];
+      const note=state.entryMode==='year'
+        ? `Nhập bảng năm · Tháng ${String(bucket.date.getMonth()+1).padStart(2,'0')}/${bucket.date.getFullYear()}`
+        : `Nhập bảng · ${new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(bucket.date)} · dòng ${rowIndex+2}`;
+      rows.push({amount,category,note,payment_method,spent_on:bucket.spent_on,spent_time});
+    });
+  });
+  return rows;
+}
+async function saveEntrySheet(){
+  const rows=readEntryRows(); if(!rows.length) return toast('Chưa có số tiền nào để lưu.','error');
+  const btn=$('#entrySaveBtn'); const old=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="saving-spinner"></span> Đang lưu…';
   try{
     if(state.mode==='cloud'){
-      const payload=rows.map(x=>({...x,user_id:state.user.id})); const {error}=await state.supabase.from('expenses').insert(payload); if(error) throw error; await loadCloud();
+      const payload=rows.map(x=>({...x,user_id:state.user.id,client_ref:uid()}));
+      const {error}=await state.supabase.from('expenses').insert(payload); if(error) throw error; await loadCloud();
     }else{
-      const now=new Date().toISOString(); state.expenses.push(...rows.map(x=>({id:uid(),...x,created_at:now}))); saveGuest();
+      const created_at=new Date().toISOString(); state.expenses.push(...rows.map(x=>({id:uid(),...x,created_at}))); saveGuest();
     }
-    renderAll(); generateBulkTemplate(); toast(`Đã lưu ${rows.length} khoản chi. Tổng ${money(sum(rows))}.`,'success');
-  }catch(e){ toast(e.message||'Không thể lưu bảng.','error'); }
-  finally{ btn.disabled=false; btn.textContent='Lưu tất cả'; }
+    closeModal('entrySheetModal'); renderAll(); toast(`Đã lưu ${rows.length} khoản chi · ${money(sum(rows))}.`,'success');
+  }catch(e){ toast(e.message||'Không thể lưu bảng chi tiêu.','error'); }
+  finally{ btn.disabled=false; btn.innerHTML=old; }
 }
-
+function clearEntryValues(){
+  $$('.entry-amount').forEach(i=>i.value='');
+  while($$('#entrySheetBody .entry-data-row').length>2) $('#entrySheetBody .entry-data-row:last-child').remove();
+  updateEntryTotals();
+  $('#entrySheetBody .entry-amount')?.focus();
+}
+function entryCellAt(row,col){ return $(`#entrySheetBody .entry-data-row:nth-child(${row+1}) .entry-amount[data-col="${col}"]`); }
+function pasteIntoEntryGrid(e){
+  const target=e.target.closest('.entry-amount'); if(!target) return;
+  const text=e.clipboardData?.getData('text'); if(!text || (!text.includes('\t')&&!text.includes('\n'))) return;
+  e.preventDefault();
+  const startRow=[...target.closest('tbody').children].indexOf(target.closest('tr')), startCol=Number(target.dataset.col||0);
+  const matrix=text.replace(/\r/g,'').trimEnd().split('\n').map(r=>r.split('\t'));
+  const needed=startRow+matrix.length;
+  while($$('#entrySheetBody .entry-data-row').length<=needed) addEntryRow();
+  matrix.forEach((r,ri)=>r.forEach((v,ci)=>{
+    const input=entryCellAt(startRow+ri,startCol+ci); if(input){input.value=v;formatEntryInput(input);}
+  }));
+  ensureTrailingEntryRow(); updateEntryTotals();
+}
 function summaryBuckets(mode,c){
   if(mode==='day'){
     const s=startOfWeek(c); return Array.from({length:7},(_,i)=>{const d=addDays(s,i);return {label:new Intl.DateTimeFormat('vi-VN',{weekday:'short',day:'2-digit',month:'2-digit'}).format(d),a:startOfDay(d),b:endOfDay(d)}});
@@ -310,19 +418,28 @@ function renderSummary(){
 function moveSummary(dir){ const d=new Date(state.summaryCursor),m=state.summaryMode; if(m==='day')d.setDate(d.getDate()+7*dir); else if(m==='week')d.setMonth(d.getMonth()+dir); else if(m==='month')d.setFullYear(d.getFullYear()+dir); else d.setFullYear(d.getFullYear()+5*dir); state.summaryCursor=d; renderSummary(); }
 
 function setView(view){
-  state.currentView=view; $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); $$('.view').forEach(v=>v.classList.remove('active')); const titles={dashboard:'Tổng quan',day:'Hôm nay',week:'Theo tuần',month:'Theo tháng',year:'Theo năm',bulk:'Nhập dạng bảng',summary:'Bảng tổng hợp',history:'Lịch sử',categories:'Danh mục'}; $('#viewTitle').textContent=titles[view]||'Quản Lý Polime'; if(['day','week','month','year'].includes(view)){state.periodMode=view; $('#periodView').classList.add('active'); renderPeriod();} else { const target=$(`#${view}View`); if(target) target.classList.add('active'); } if(view==='bulk'){ updateBulkPeriodUI(); if(!$('#bulkBody').children.length) generateBulkTemplate(); } if(view==='summary') renderSummary(); $('#sidebar').classList.remove('open');
+  state.currentView=view; $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); $$('.view').forEach(v=>v.classList.remove('active')); const titles={dashboard:'Tổng quan',day:'Hôm nay',week:'Theo tuần',month:'Theo tháng',year:'Theo năm',summary:'Bảng tổng hợp',history:'Lịch sử',categories:'Danh mục'}; $('#viewTitle').textContent=titles[view]||'Quản Lý Polime'; if(['day','week','month','year'].includes(view)){state.periodMode=view; $('#periodView').classList.add('active'); renderPeriod();} else { const target=$(`#${view}View`); if(target) target.classList.add('active'); } if(view==='summary') renderSummary(); $('#sidebar').classList.remove('open');
 }
 function movePeriod(dir){ const d=new Date(state.periodCursor); if(state.periodMode==='day') d.setDate(d.getDate()+dir); else if(state.periodMode==='week') d.setDate(d.getDate()+7*dir); else if(state.periodMode==='month') d.setMonth(d.getMonth()+dir); else d.setFullYear(d.getFullYear()+dir); state.periodCursor=d; renderPeriod(); }
 
 function bind(){
-  $$('.nav-item').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view))); $$('[data-jump-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.jumpView))); $('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open'); $('#addExpenseBtn').onclick=()=>openExpense(); $('#openBulkBtn').onclick=()=>setView('bulk'); $$('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close)); $$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m) closeModal(m.id)}));
+  $$('.nav-item').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view))); $$('[data-jump-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.jumpView))); $('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open'); $('#addExpenseBtn').onclick=openEntrySheet; $$('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close)); $$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m) closeModal(m.id)}));
   $('#themeBtn').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark'; document.documentElement.dataset.theme=next; localStorage.setItem(STORAGE_THEME,next); $('#themeBtn').textContent=next==='dark'?'☀':'☾'; setTimeout(()=>{renderCharts()},30);};
   $('#prevPeriodBtn').onclick=()=>movePeriod(-1); $('#nextPeriodBtn').onclick=()=>movePeriod(1); $('#currentPeriodBtn').onclick=()=>{state.periodCursor=new Date();renderPeriod()};
-  $('#bulkMode').onchange=e=>{state.bulkMode=e.target.value;state.bulkCursor=parseDateOnly($('#bulkAnchor').value||localISODate());updateBulkPeriodUI();generateBulkTemplate();};
-  $('#bulkAnchor').onchange=e=>{state.bulkCursor=parseDateOnly(e.target.value||localISODate());updateBulkPeriodUI();generateBulkTemplate();};
-  $('#bulkAddRowBtn').onclick=()=>addBulkRow(); $('#bulkGenerateBtn').onclick=generateBulkTemplate; $('#bulkSaveBtn').onclick=saveBulkRows;
-  $('#bulkBody').addEventListener('input',e=>{ if(e.target.classList.contains('bulk-amount')){const n=parseAmount(e.target.value);e.target.value=n?new Intl.NumberFormat('vi-VN').format(n):'';updateBulkDraftTotal();} });
-  $('#bulkBody').addEventListener('click',e=>{const b=e.target.closest('.bulk-remove');if(b){b.closest('tr').remove();renumberBulkRows();updateBulkDraftTotal();}});
+  $$('.entry-mode-btn').forEach(b=>b.onclick=()=>{
+    const next=b.dataset.entryMode; if(next===state.entryMode) return;
+    if(entryHasValues()&&!confirm('Đổi kiểu bảng sẽ xóa các số đang nhập. Tiếp tục?')) return;
+    state.entryMode=next; resetEntrySheet();
+  });
+  $('#entryPrevBtn').onclick=()=>{if(!entryHasValues()||confirm('Chuyển kỳ sẽ xóa các số đang nhập. Tiếp tục?')) moveEntryPeriod(-1);};
+  $('#entryNextBtn').onclick=()=>{if(!entryHasValues()||confirm('Chuyển kỳ sẽ xóa các số đang nhập. Tiếp tục?')) moveEntryPeriod(1);};
+  $('#entryAnchor').onchange=e=>{if(entryHasValues()&&!confirm('Đổi ngày sẽ xóa các số đang nhập. Tiếp tục?')){e.target.value=localISODate(state.entryCursor);return;} state.entryCursor=parseDateOnly(e.target.value||localISODate());resetEntrySheet();};
+  $('#entryClearBtn').onclick=()=>{if(entryHasValues()&&!confirm('Xóa toàn bộ số đang nhập?')) return; clearEntryValues();};
+  $('#entrySaveBtn').onclick=saveEntrySheet;
+  $('#entrySheetBody').addEventListener('input',e=>{const input=e.target.closest('.entry-amount');if(!input)return;formatEntryInput(input);ensureTrailingEntryRow();updateEntryTotals();});
+  $('#entrySheetBody').addEventListener('keydown',e=>{const input=e.target.closest('.entry-amount');if(!input)return;const row=[...input.closest('tbody').children].indexOf(input.closest('tr')),col=Number(input.dataset.col||0);if(e.key==='Enter'){e.preventDefault();if(!entryCellAt(row+1,col))addEntryRow();entryCellAt(row+1,col)?.focus();entryCellAt(row+1,col)?.select();}else if(e.key==='ArrowRight'&&input.selectionStart===input.value.length){entryCellAt(row,col+1)?.focus();}else if(e.key==='ArrowLeft'&&input.selectionStart===0){entryCellAt(row,col-1)?.focus();}});
+  $('#entrySheetBody').addEventListener('paste',pasteIntoEntryGrid);
+  $('#entrySheetModal').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();saveEntrySheet();}});
   $$('.summary-tab').forEach(b=>b.onclick=()=>{state.summaryMode=b.dataset.summaryMode;renderSummary();}); $('#summaryPrevBtn').onclick=()=>moveSummary(-1); $('#summaryNextBtn').onclick=()=>moveSummary(1); $('#summaryCurrentBtn').onclick=()=>{state.summaryCursor=new Date();renderSummary();};
   $('#expenseAmount').addEventListener('input',e=>{const n=parseAmount(e.target.value); e.target.value=n?new Intl.NumberFormat('vi-VN').format(n):'';}); $('#quickInput').addEventListener('input',e=>{const p=parseQuick(e.target.value); if(p){$('#expenseAmount').value=new Intl.NumberFormat('vi-VN').format(p.amount);$('#expenseNote').value=p.note;$('#expenseCategory').value=p.category;}});
   $('#expenseForm').addEventListener('submit',async e=>{e.preventDefault(); const data={amount:parseAmount($('#expenseAmount').value),category:$('#expenseCategory').value,note:$('#expenseNote').value.trim(),payment_method:$('#expensePayment').value,spent_on:$('#expenseDate').value,spent_time:$('#expenseTime').value}; if(data.amount<=0) return toast('Số tiền phải lớn hơn 0.','error'); try{await saveExpense(data,$('#expenseId').value);closeModal('expenseModal');renderAll();toast('Đã lưu khoản chi.','success');}catch(err){toast(err.message||'Không thể lưu dữ liệu.','error')}});
@@ -332,10 +449,12 @@ function bind(){
   $$('.auth-tab').forEach(b=>b.onclick=()=>{ $$('.auth-tab').forEach(x=>x.classList.toggle('active',x===b)); $('#loginForm').classList.toggle('hidden',b.dataset.authTab!=='login'); $('#registerForm').classList.toggle('hidden',b.dataset.authTab!=='register'); });
   $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();if(!state.supabase)return toast('Chưa cấu hình Supabase trong config.js.','error'); const {error}=await state.supabase.auth.signInWithPassword({email:$('#loginEmail').value.trim(),password:$('#loginPassword').value}); if(error) toast(error.message,'error');});
   $('#registerForm').addEventListener('submit',async e=>{e.preventDefault();if(!state.supabase)return toast('Chưa cấu hình Supabase trong config.js.','error'); const p=$('#registerPassword').value;if(p!==$('#registerPassword2').value)return toast('Hai mật khẩu không khớp.','error'); const {data,error}=await state.supabase.auth.signUp({email:$('#registerEmail').value.trim(),password:p}); if(error)return toast(error.message,'error'); if(data.session) toast('Đăng ký thành công.','success'); else toast('Đã tạo tài khoản. Kiểm tra email để xác nhận nếu Supabase đang bật xác thực email.','success');});
+  window.addEventListener('offline',()=>{ if(state.mode==='cloud'){state.syncState='error';updateSyncUI();toast('Mất kết nối mạng. Chưa thể ghi dữ liệu lên server.','error');} });
+  window.addEventListener('online',async()=>{ if(state.mode==='cloud'){try{await loadCloud();renderAll();toast('Đã kết nối lại Supabase.','success');}catch{}} });
 }
 
 async function init(){
-  const theme=localStorage.getItem(STORAGE_THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); document.documentElement.dataset.theme=theme; $('#themeBtn').textContent=theme==='dark'?'☀':'☾'; $('#bulkAnchor').value=localISODate(); state.bulkCursor=new Date(); $('#todayLabel').textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date()); bind(); await initAuth(); renderAll();
+  const theme=localStorage.getItem(STORAGE_THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); document.documentElement.dataset.theme=theme; $('#themeBtn').textContent=theme==='dark'?'☀':'☾'; state.entryCursor=new Date(); $('#entryAnchor').value=localISODate(); $('#todayLabel').textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date()); bind(); await initAuth(); renderAll();
   if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 init();

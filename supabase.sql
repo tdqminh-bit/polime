@@ -15,6 +15,7 @@ create table if not exists public.categories (
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  client_ref text,
   amount bigint not null check (amount > 0),
   category text not null check (char_length(category) between 1 and 40),
   note text not null default '' check (char_length(note) <= 120),
@@ -25,6 +26,9 @@ create table if not exists public.expenses (
   updated_at timestamptz not null default now()
 );
 
+alter table public.expenses add column if not exists client_ref text;
+drop index if exists public.expenses_user_client_ref_uidx;
+create unique index expenses_user_client_ref_uidx on public.expenses(user_id, client_ref);
 create index if not exists expenses_user_date_idx on public.expenses(user_id, spent_on desc);
 create index if not exists categories_user_idx on public.categories(user_id);
 

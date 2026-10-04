@@ -1,4 +1,4 @@
-QUẢN LÝ POLIME - CÀI ĐẶT NHANH
+QUẢN LÝ POLIME v3 - SERVER FREE
 ================================
 
 A. Chạy thử ngay
@@ -6,7 +6,7 @@ A. Chạy thử ngay
 - Khi chưa cấu hình Supabase, app chạy ở chế độ dùng thử và lưu localStorage trên thiết bị.
 
 B. Bật lưu online + đăng ký/đăng nhập/đăng xuất
-1. Tạo tài khoản và project miễn phí tại Supabase.
+1. Tạo tài khoản và project Supabase Free ($0/tháng).
 2. Vào SQL Editor, tạo query mới, dán TOÀN BỘ nội dung file supabase.sql rồi Run.
 3. Vào Project Settings / API (hoặc mục Connect/API Keys tùy giao diện Supabase).
 4. Lấy Project URL và Publishable key (hoặc anon key của frontend).
@@ -29,9 +29,11 @@ D. Chức năng đã có
 - Đăng ký / đăng nhập / đăng xuất bằng email + mật khẩu khi cấu hình Supabase.
 - Tự đề nghị chuyển dữ liệu dùng thử lên cloud sau lần đăng nhập đầu tiên.
 - Thêm / sửa / xóa chi tiêu.
-- Nhập nhiều khoản dạng bảng kiểu Excel theo Ngày / Tuần / Tháng / Năm và lưu hàng loạt.
+- Nút chính “Nhập thêm” mở trực tiếp bảng kiểu Excel theo Ngày / Tuần / Tháng / Năm; không còn menu/nút Nhập bảng riêng.
+- Bảng nhập khởi tạo 2 dòng trống; khi nhập đến dòng trống cuối, hệ thống tự thêm dòng mới và đẩy TỔNG CHI xuống dưới.
+- Tổng từng cột thời gian và tổng toàn bảng cập nhật ngay khi gõ; hỗ trợ Enter/Tab và dán vùng ô từ Excel/Google Sheets.
 - Bảng tổng hợp Excel theo Ngày / Tuần / Tháng / Năm; hàng cuối tự tính tổng từng cột và cột cuối tự tính tổng từng danh mục.
-- Hiệu ứng chuyển cảnh, modal, hover, hàng bảng và thao tác được làm mượt hơn.
+- Hiệu ứng chuyển cảnh, modal, hover, focus ô, toast và bảng được tối ưu bằng transform/opacity để mượt trên màn hình tần số quét cao; layout có breakpoint riêng cho mobile, tablet, desktop và 4K.
 - Nhập nhanh: "50000 ăn sáng", "120k xăng xe", "1.2tr mua đồ".
 - Tự đoán một số danh mục từ nội dung nhập nhanh.
 - Thêm / xóa danh mục.
@@ -50,3 +52,19 @@ D. Chức năng đã có
 E. Lưu ý
 - GitHub Pages chỉ host code tĩnh. Không nên lưu dữ liệu người dùng bằng cách cho frontend ghi trực tiếp vào repository vì sẽ phải lộ token có quyền ghi.
 - Dữ liệu online được lưu ở Supabase PostgreSQL; source code vẫn host hoàn toàn trên GitHub Pages.
+
+
+F. Bản v3 - Server Free
+- Khi đăng nhập, server Supabase là nguồn dữ liệu chuẩn.
+- Có trạng thái Đang đồng bộ / Đã lưu trên server / Lỗi kết nối ngay ở sidebar.
+- Migration dữ liệu guest có client_ref để giảm nguy cơ nhập trùng khi retry.
+- Service Worker v3 ưu tiên lấy config.js/app.js/index.html mới từ mạng để tránh cache cấu hình server cũ.
+- Xem SERVER_FREE_SETUP.txt để cấu hình hoàn chỉnh.
+
+
+G. Bản v4 - Fluid Excel Entry
+- Xóa trang/menu Nhập dạng bảng và nút Nhập bảng phụ.
+- Nút Nhập thêm là điểm nhập dữ liệu chính, mở spreadsheet động.
+- Dòng 1 là header thời gian; dòng 2 và 3 trống; hàng Tổng chi tự động ở cuối và tự dồn xuống khi phát sinh dòng mới.
+- Chế độ Năm dùng 12 cột tháng; mỗi ô tổng tháng được lưu vào ngày 01 của tháng tương ứng để giữ tương thích schema hiện tại.
+- Service Worker cache polime-v4.

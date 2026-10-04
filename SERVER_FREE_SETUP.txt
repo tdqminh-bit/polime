@@ -1,0 +1,46 @@
+QUẢN LÝ POLIME - LƯU DATA ONLINE BẰNG SUPABASE FREE
+====================================================
+
+MÔ HÌNH
+- Frontend: GitHub Pages (miễn phí).
+- Server dữ liệu: Supabase Free.
+- Database: PostgreSQL.
+- Tài khoản: Supabase Auth (email + password).
+- Bảo mật dữ liệu: Row Level Security (RLS), mỗi user chỉ thấy dữ liệu của mình.
+- Chưa đăng nhập: dữ liệu chỉ nằm ở localStorage để dùng thử.
+- Đã đăng nhập: thêm/sửa/xóa/nhập bảng sẽ ghi lên Supabase trước, rồi app tải lại dữ liệu server.
+
+CÀI SUPABASE FREE
+1. Tạo tài khoản tại supabase.com.
+2. Create a new project và chọn Free plan ($0/month).
+3. Trong SQL Editor, tạo query mới.
+4. Dán toàn bộ nội dung file supabase.sql và bấm Run.
+5. Vào Project Settings > API (hoặc Connect/API Keys).
+6. Copy Project URL.
+7. Copy Publishable key; nếu project dùng hệ key cũ thì dùng anon key.
+8. Mở config.js và điền 2 giá trị:
+
+   window.POLIME_CONFIG = {
+     supabaseUrl: "https://YOUR_PROJECT.supabase.co",
+     supabaseAnonKey: "YOUR_PUBLISHABLE_OR_ANON_KEY"
+   };
+
+9. KHÔNG BAO GIỜ đưa service_role / secret key vào GitHub hoặc frontend.
+10. Nếu muốn đăng ký xong đăng nhập ngay không cần xác nhận email: Supabase Dashboard > Authentication > Providers > Email và chỉnh tùy chọn Confirm email theo nhu cầu.
+
+GITHUB PAGES
+1. Upload toàn bộ file trong thư mục lên repository.
+2. Settings > Pages > Deploy from a branch.
+3. Chọn main / root.
+4. Trong Supabase > Authentication > URL Configuration:
+   - Site URL: URL GitHub Pages thật của project.
+   - Redirect URLs: thêm URL GitHub Pages của project.
+5. Sau khi deploy, hard refresh một lần nếu trình duyệt từng chạy bản cũ.
+
+FREE PLAN (kiểm tra ngày 04/10/2026)
+- 500 MB database / project.
+- 50,000 monthly active users.
+- 5 GB egress.
+- 1 GB file storage.
+- Free project có thể pause sau khoảng 1 tuần không hoạt động.
+Các giới hạn có thể thay đổi; kiểm tra trang Pricing/Billing của Supabase khi triển khai thực tế.
