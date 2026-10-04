@@ -25,7 +25,11 @@ const state = {
   currentView: 'dashboard',
   periodMode: 'day',
   periodCursor: new Date(),
-  charts: {daily:null, category:null}
+  charts: {daily:null, category:null},
+  bulkMode: 'day',
+  bulkCursor: new Date(),
+  summaryMode: 'day',
+  summaryCursor: new Date()
 };
 
 const cfg = window.POLIME_CONFIG || {};
@@ -54,8 +58,16 @@ function startOfYear(d){ return new Date(d.getFullYear(),0,1); }
 function endOfYear(d){ return endOfDay(new Date(d.getFullYear(),11,31)); }
 function within(e,a,b){ const d=expenseDate(e); return d>=a && d<=b; }
 function toast(msg,type=''){ const el=document.createElement('div'); el.className=`toast ${type}`; el.textContent=msg; $('#toastContainer').appendChild(el); setTimeout(()=>el.remove(),3200); }
-function openModal(id){ $(`#${id}`).classList.remove('hidden'); }
-function closeModal(id){ $(`#${id}`).classList.add('hidden'); }
+function openModal(id){
+  const m=$(`#${id}`); if(!m) return;
+  m.classList.remove('hidden','closing');
+  requestAnimationFrame(()=>m.classList.add('is-open'));
+}
+function closeModal(id){
+  const m=$(`#${id}`); if(!m||m.classList.contains('hidden')) return;
+  m.classList.remove('is-open'); m.classList.add('closing');
+  setTimeout(()=>{m.classList.add('hidden');m.classList.remove('closing');},190);
+}
 
 function saveGuest(){ localStorage.setItem(STORAGE_EXPENSES,JSON.stringify(state.expenses)); localStorage.setItem(STORAGE_CATEGORIES,JSON.stringify(state.categories)); }
 function loadGuest(){
@@ -115,7 +127,7 @@ function updateSyncUI(){
   $('#authNote').textContent = cloudConfigured ? 'Tài khoản dùng Supabase Auth. Sau khi đăng nhập, dữ liệu của mỗi tài khoản được tách riêng.' : 'Supabase chưa được cấu hình. Hãy điền URL và anon/publishable key trong config.js để bật đăng ký, đăng nhập và đồng bộ online.';
 }
 
-function renderAll(){ renderCategoriesInForms(); renderDashboard(); renderPeriod(); renderHistory(); renderCategoryManager(); }
+function renderAll(){ renderCategoriesInForms(); renderDashboard(); renderPeriod(); renderHistory(); renderCategoryManager(); renderSummary(); refreshBulkCategoryOptions(); }
 function getRange(mode,cursor){ if(mode==='day') return [startOfDay(cursor),endOfDay(cursor)]; if(mode==='week') return [startOfWeek(cursor),endOfWeek(cursor)]; if(mode==='month') return [startOfMonth(cursor),endOfMonth(cursor)]; return [startOfYear(cursor),endOfYear(cursor)]; }
 function listFor(mode,cursor){ const [a,b]=getRange(mode,cursor); return state.expenses.filter(e=>within(e,a,b)); }
 function pluralCount(n){ return `${n} khoản chi`; }
@@ -204,15 +216,114 @@ function parseQuick(v){
   const s=v.trim().toLowerCase(); const m=s.match(/(\d+(?:[.,]\d+)?)\s*(k|tr|m|nghìn|ngan|triệu)?/i); if(!m) return null; let n=Number(m[1].replace(',','.')); const unit=(m[2]||'').toLowerCase(); if(['k','nghìn','ngan'].includes(unit)) n*=1000; if(['tr','m','triệu'].includes(unit)) n*=1000000; const note=v.replace(m[0],'').trim()||'Chi tiêu'; let cat='Khác'; for(const [name,keys] of Object.entries(CATEGORY_HINTS)){ if(keys.some(k=>note.toLowerCase().includes(k))){cat=name;break;} } if(!state.categories.some(c=>c.name===cat)) cat=state.categories[0]?.name||'Khác'; return {amount:Math.round(n),note,category:cat};
 }
 
+
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function clampDateToRange(d,a,b){ return d<a?new Date(a):d>b?new Date(b):new Date(d); }
+function modeRangeLabel(mode,cursor){ return periodLabel(mode,cursor); }
+function bulkDefaultDate(){
+  const [a,b]=getRange(state.bulkMode,state.bulkCursor); return localISODate(clampDateToRange(new Date(),a,b));
+}
+function categoryOptions(selected=''){
+  return state.categories.map(c=>`<option value="${escapeHtml(c.name)}" ${c.name===selected?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
+}
+function paymentOptions(selected='Tiền mặt'){
+  return ['Tiền mặt','Chuyển khoản','Thẻ','Ví điện tử','Khác'].map(x=>`<option ${x===selected?'selected':''}>${x}</option>`).join('');
+}
+function bulkRowHTML(date=bulkDefaultDate(), index=1){
+  const now=new Date(),tm=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  return `<tr class="bulk-row"><td class="row-number">${index}</td><td><input class="sheet-input bulk-date" type="date" value="${date}"></td><td><input class="sheet-input bulk-time" type="time" value="${tm}"></td><td><select class="sheet-input bulk-category">${categoryOptions(state.categories[0]?.name||'')}</select></td><td><input class="sheet-input bulk-note" maxlength="120" placeholder="Nội dung chi tiêu"></td><td><select class="sheet-input bulk-payment">${paymentOptions()}</select></td><td><input class="sheet-input bulk-amount money-input" inputmode="numeric" placeholder="0"></td><td><button class="row-btn bulk-remove" title="Xóa dòng">×</button></td></tr>`;
+}
+function renumberBulkRows(){ $$('#bulkBody .bulk-row').forEach((tr,i)=>{ const n=$('.row-number',tr); if(n)n.textContent=i+1; }); }
+function addBulkRow(date=bulkDefaultDate()){ $('#bulkBody').insertAdjacentHTML('beforeend',bulkRowHTML(date,$$('#bulkBody .bulk-row').length+1)); updateBulkDraftTotal(); }
+function clearBulkRows(){ $('#bulkBody').innerHTML=''; }
+function generateBulkTemplate(){
+  clearBulkRows(); const c=state.bulkCursor,mode=state.bulkMode;
+  if(mode==='day'){ for(let i=0;i<5;i++) addBulkRow(localISODate(c)); }
+  else if(mode==='week'){ const s=startOfWeek(c); for(let i=0;i<7;i++) addBulkRow(localISODate(addDays(s,i))); }
+  else if(mode==='month'){ const days=new Date(c.getFullYear(),c.getMonth()+1,0).getDate(); for(let i=1;i<=days;i++) addBulkRow(localISODate(new Date(c.getFullYear(),c.getMonth(),i))); }
+  else { for(let m=0;m<12;m++) addBulkRow(localISODate(new Date(c.getFullYear(),m,1))); }
+  updateBulkDraftTotal();
+}
+function updateBulkPeriodUI(){
+  $('#bulkPeriodLabel').textContent=modeRangeLabel(state.bulkMode,state.bulkCursor);
+}
+function updateBulkDraftTotal(){
+  const total=$$('#bulkBody .bulk-amount').reduce((a,x)=>a+parseAmount(x.value),0); $('#bulkDraftTotal').textContent=money(total);
+}
+function refreshBulkCategoryOptions(){
+  $$('#bulkBody .bulk-category').forEach(sel=>{ const v=sel.value; sel.innerHTML=categoryOptions(v); if(state.categories.some(c=>c.name===v)) sel.value=v; });
+}
+function readBulkRows(){
+  const [a,b]=getRange(state.bulkMode,state.bulkCursor); const out=[]; let invalidDate=false;
+  $$('#bulkBody .bulk-row').forEach(tr=>{
+    const amount=parseAmount($('.bulk-amount',tr).value); if(!amount) return;
+    const spent_on=$('.bulk-date',tr).value, d=parseDateOnly(spent_on); if(d<a||d>b) invalidDate=true;
+    out.push({amount,category:$('.bulk-category',tr).value,note:$('.bulk-note',tr).value.trim()||'Chi tiêu',payment_method:$('.bulk-payment',tr).value,spent_on,spent_time:$('.bulk-time',tr).value||'12:00'});
+  });
+  if(invalidDate) throw new Error('Có ngày nằm ngoài kỳ đang chọn. Hãy sửa ngày hoặc đổi kỳ nhập.');
+  return out;
+}
+async function saveBulkRows(){
+  let rows; try{ rows=readBulkRows(); }catch(e){ return toast(e.message,'error'); }
+  if(!rows.length) return toast('Chưa có dòng nào có số tiền để lưu.','error');
+  const btn=$('#bulkSaveBtn'); btn.disabled=true; btn.textContent='Đang lưu...';
+  try{
+    if(state.mode==='cloud'){
+      const payload=rows.map(x=>({...x,user_id:state.user.id})); const {error}=await state.supabase.from('expenses').insert(payload); if(error) throw error; await loadCloud();
+    }else{
+      const now=new Date().toISOString(); state.expenses.push(...rows.map(x=>({id:uid(),...x,created_at:now}))); saveGuest();
+    }
+    renderAll(); generateBulkTemplate(); toast(`Đã lưu ${rows.length} khoản chi. Tổng ${money(sum(rows))}.`,'success');
+  }catch(e){ toast(e.message||'Không thể lưu bảng.','error'); }
+  finally{ btn.disabled=false; btn.textContent='Lưu tất cả'; }
+}
+
+function summaryBuckets(mode,c){
+  if(mode==='day'){
+    const s=startOfWeek(c); return Array.from({length:7},(_,i)=>{const d=addDays(s,i);return {label:new Intl.DateTimeFormat('vi-VN',{weekday:'short',day:'2-digit',month:'2-digit'}).format(d),a:startOfDay(d),b:endOfDay(d)}});
+  }
+  if(mode==='week'){
+    const ms=startOfMonth(c),me=endOfMonth(c); let s=startOfWeek(ms),arr=[],i=1; while(s<=me){const e=endOfWeek(s);arr.push({label:`Tuần ${i++}\n${String(Math.max(s,ms).getDate()).padStart(2,'0')}/${String(c.getMonth()+1).padStart(2,'0')}`,a:new Date(Math.max(s,ms)),b:new Date(Math.min(e,me))});s=addDays(s,7);} return arr;
+  }
+  if(mode==='month') return Array.from({length:12},(_,m)=>{const d=new Date(c.getFullYear(),m,1);return {label:`Tháng ${m+1}`,a:startOfMonth(d),b:endOfMonth(d)}});
+  const startY=c.getFullYear()-2; return Array.from({length:5},(_,i)=>{const d=new Date(startY+i,0,1);return {label:`Năm ${d.getFullYear()}`,a:startOfYear(d),b:endOfYear(d)}});
+}
+function summaryContextLabel(mode,c){
+  if(mode==='day'){const [a,b]=[startOfWeek(c),endOfWeek(c)];return `Tuần ${new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(a)} – ${new Intl.DateTimeFormat('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'}).format(b)}`;}
+  if(mode==='week') return `Tháng ${c.getMonth()+1}/${c.getFullYear()}`;
+  if(mode==='month') return `Năm ${c.getFullYear()}`;
+  return `${c.getFullYear()-2} – ${c.getFullYear()+2}`;
+}
+function renderSummary(){
+  const table=$('#summaryTable'); if(!table) return; const mode=state.summaryMode,c=state.summaryCursor,buckets=summaryBuckets(mode,c);
+  $('#summaryEyebrow').textContent=`Bảng theo ${{day:'ngày',week:'tuần',month:'tháng',year:'năm'}[mode]}`; $('#summaryPeriodLabel').textContent=summaryContextLabel(mode,c);
+  $$('.summary-tab').forEach(b=>b.classList.toggle('active',b.dataset.summaryMode===mode));
+  const categoryNames=[...new Set([...state.categories.map(x=>x.name),...state.expenses.map(x=>x.category)])];
+  const rows=categoryNames.map(cat=>{
+    const vals=buckets.map(b=>sum(state.expenses.filter(e=>e.category===cat&&within(e,b.a,b.b)))); return {cat,vals,total:vals.reduce((a,v)=>a+v,0)};
+  }).filter(r=>r.total>0 || state.categories.some(c=>c.name===r.cat));
+  const colTotals=buckets.map((_,i)=>rows.reduce((a,r)=>a+r.vals[i],0)),grand=colTotals.reduce((a,v)=>a+v,0);
+  const th=buckets.map(b=>`<th class="summary-period-th">${escapeHtml(b.label).replace(/\n/g,'<br>')}</th>`).join('');
+  const body=rows.map(r=>`<tr><th class="summary-row-head">${escapeHtml(r.cat)}</th>${r.vals.map(v=>`<td class="summary-value ${v?'has-value':''}">${v?money(v):'—'}</td>`).join('')}<td class="summary-row-total">${money(r.total)}</td></tr>`).join('');
+  table.innerHTML=`<thead><tr><th class="summary-row-head sticky-col">Danh mục</th>${th}<th class="summary-total-head">Tổng danh mục</th></tr></thead><tbody>${body||`<tr><td colspan="${buckets.length+2}" class="empty-cell">Chưa có dữ liệu.</td></tr>`}</tbody><tfoot><tr><th class="summary-row-head sticky-col">TỔNG CHI</th>${colTotals.map(v=>`<th class="summary-col-total">${money(v)}</th>`).join('')}<th class="summary-grand-total">${money(grand)}</th></tr></tfoot>`;
+}
+function moveSummary(dir){ const d=new Date(state.summaryCursor),m=state.summaryMode; if(m==='day')d.setDate(d.getDate()+7*dir); else if(m==='week')d.setMonth(d.getMonth()+dir); else if(m==='month')d.setFullYear(d.getFullYear()+dir); else d.setFullYear(d.getFullYear()+5*dir); state.summaryCursor=d; renderSummary(); }
+
 function setView(view){
-  state.currentView=view; $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); $$('.view').forEach(v=>v.classList.remove('active')); const titles={dashboard:'Tổng quan',day:'Hôm nay',week:'Theo tuần',month:'Theo tháng',year:'Theo năm',history:'Lịch sử',categories:'Danh mục'}; $('#viewTitle').textContent=titles[view]||'Quản Lý Polime'; if(['day','week','month','year'].includes(view)){state.periodMode=view; $('#periodView').classList.add('active'); renderPeriod();} else $(`#${view}View`).classList.add('active'); $('#sidebar').classList.remove('open');
+  state.currentView=view; $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); $$('.view').forEach(v=>v.classList.remove('active')); const titles={dashboard:'Tổng quan',day:'Hôm nay',week:'Theo tuần',month:'Theo tháng',year:'Theo năm',bulk:'Nhập dạng bảng',summary:'Bảng tổng hợp',history:'Lịch sử',categories:'Danh mục'}; $('#viewTitle').textContent=titles[view]||'Quản Lý Polime'; if(['day','week','month','year'].includes(view)){state.periodMode=view; $('#periodView').classList.add('active'); renderPeriod();} else { const target=$(`#${view}View`); if(target) target.classList.add('active'); } if(view==='bulk'){ updateBulkPeriodUI(); if(!$('#bulkBody').children.length) generateBulkTemplate(); } if(view==='summary') renderSummary(); $('#sidebar').classList.remove('open');
 }
 function movePeriod(dir){ const d=new Date(state.periodCursor); if(state.periodMode==='day') d.setDate(d.getDate()+dir); else if(state.periodMode==='week') d.setDate(d.getDate()+7*dir); else if(state.periodMode==='month') d.setMonth(d.getMonth()+dir); else d.setFullYear(d.getFullYear()+dir); state.periodCursor=d; renderPeriod(); }
 
 function bind(){
-  $$('.nav-item').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view))); $$('[data-jump-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.jumpView))); $('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open'); $('#addExpenseBtn').onclick=()=>openExpense(); $$('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close)); $$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m) closeModal(m.id)}));
+  $$('.nav-item').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view))); $$('[data-jump-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.jumpView))); $('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open'); $('#addExpenseBtn').onclick=()=>openExpense(); $('#openBulkBtn').onclick=()=>setView('bulk'); $$('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close)); $$('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m) closeModal(m.id)}));
   $('#themeBtn').onclick=()=>{const next=document.documentElement.dataset.theme==='dark'?'light':'dark'; document.documentElement.dataset.theme=next; localStorage.setItem(STORAGE_THEME,next); $('#themeBtn').textContent=next==='dark'?'☀':'☾'; setTimeout(()=>{renderCharts()},30);};
   $('#prevPeriodBtn').onclick=()=>movePeriod(-1); $('#nextPeriodBtn').onclick=()=>movePeriod(1); $('#currentPeriodBtn').onclick=()=>{state.periodCursor=new Date();renderPeriod()};
+  $('#bulkMode').onchange=e=>{state.bulkMode=e.target.value;state.bulkCursor=parseDateOnly($('#bulkAnchor').value||localISODate());updateBulkPeriodUI();generateBulkTemplate();};
+  $('#bulkAnchor').onchange=e=>{state.bulkCursor=parseDateOnly(e.target.value||localISODate());updateBulkPeriodUI();generateBulkTemplate();};
+  $('#bulkAddRowBtn').onclick=()=>addBulkRow(); $('#bulkGenerateBtn').onclick=generateBulkTemplate; $('#bulkSaveBtn').onclick=saveBulkRows;
+  $('#bulkBody').addEventListener('input',e=>{ if(e.target.classList.contains('bulk-amount')){const n=parseAmount(e.target.value);e.target.value=n?new Intl.NumberFormat('vi-VN').format(n):'';updateBulkDraftTotal();} });
+  $('#bulkBody').addEventListener('click',e=>{const b=e.target.closest('.bulk-remove');if(b){b.closest('tr').remove();renumberBulkRows();updateBulkDraftTotal();}});
+  $$('.summary-tab').forEach(b=>b.onclick=()=>{state.summaryMode=b.dataset.summaryMode;renderSummary();}); $('#summaryPrevBtn').onclick=()=>moveSummary(-1); $('#summaryNextBtn').onclick=()=>moveSummary(1); $('#summaryCurrentBtn').onclick=()=>{state.summaryCursor=new Date();renderSummary();};
   $('#expenseAmount').addEventListener('input',e=>{const n=parseAmount(e.target.value); e.target.value=n?new Intl.NumberFormat('vi-VN').format(n):'';}); $('#quickInput').addEventListener('input',e=>{const p=parseQuick(e.target.value); if(p){$('#expenseAmount').value=new Intl.NumberFormat('vi-VN').format(p.amount);$('#expenseNote').value=p.note;$('#expenseCategory').value=p.category;}});
   $('#expenseForm').addEventListener('submit',async e=>{e.preventDefault(); const data={amount:parseAmount($('#expenseAmount').value),category:$('#expenseCategory').value,note:$('#expenseNote').value.trim(),payment_method:$('#expensePayment').value,spent_on:$('#expenseDate').value,spent_time:$('#expenseTime').value}; if(data.amount<=0) return toast('Số tiền phải lớn hơn 0.','error'); try{await saveExpense(data,$('#expenseId').value);closeModal('expenseModal');renderAll();toast('Đã lưu khoản chi.','success');}catch(err){toast(err.message||'Không thể lưu dữ liệu.','error')}});
   document.body.addEventListener('click',e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]'),dc=e.target.closest('[data-delete-category]'); if(edit) openExpense(state.expenses.find(x=>String(x.id)===String(edit.dataset.edit))); if(del) deleteExpense(del.dataset.delete); if(dc) deleteCategory(dc.dataset.deleteCategory);});
@@ -224,7 +335,7 @@ function bind(){
 }
 
 async function init(){
-  const theme=localStorage.getItem(STORAGE_THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); document.documentElement.dataset.theme=theme; $('#themeBtn').textContent=theme==='dark'?'☀':'☾'; $('#todayLabel').textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date()); bind(); await initAuth(); renderAll();
+  const theme=localStorage.getItem(STORAGE_THEME)|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); document.documentElement.dataset.theme=theme; $('#themeBtn').textContent=theme==='dark'?'☀':'☾'; $('#bulkAnchor').value=localISODate(); state.bulkCursor=new Date(); $('#todayLabel').textContent=new Intl.DateTimeFormat('vi-VN',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(new Date()); bind(); await initAuth(); renderAll();
   if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 init();

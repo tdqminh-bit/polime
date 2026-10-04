@@ -32,6 +32,8 @@
         <button class="nav-item" data-view="week"><span>▦</span><span>Tuần</span></button>
         <button class="nav-item" data-view="month"><span>▤</span><span>Tháng</span></button>
         <button class="nav-item" data-view="year"><span>◫</span><span>Năm</span></button>
+        <button class="nav-item" data-view="bulk"><span>▥</span><span>Nhập dạng bảng</span></button>
+        <button class="nav-item" data-view="summary"><span>▦</span><span>Bảng tổng hợp</span></button>
         <button class="nav-item" data-view="history"><span>☰</span><span>Lịch sử</span></button>
         <button class="nav-item" data-view="categories"><span>◇</span><span>Danh mục</span></button>
       </nav>
@@ -60,6 +62,7 @@
         </div>
         <div class="topbar-actions">
           <button class="icon-btn" id="themeBtn" aria-label="Đổi giao diện" title="Sáng / Tối">☾</button>
+          <button class="secondary-btn top-bulk-btn" id="openBulkBtn"><span>▥</span> Nhập bảng</button>
           <button class="primary-btn" id="addExpenseBtn"><span>＋</span> Thêm chi tiêu</button>
         </div>
       </header>
@@ -118,6 +121,56 @@
         <article class="panel">
           <div class="panel-head"><div><h2>Các khoản chi</h2><p id="periodExpenseSubtitle"></p></div></div>
           <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th class="money-col">Số tiền</th><th></th></tr></thead><tbody id="periodBody"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="bulkView">
+        <article class="panel sheet-panel">
+          <div class="panel-head sheet-head">
+            <div><h2>Nhập chi tiêu dạng bảng</h2><p>Nhập nhiều khoản cùng lúc như Excel rồi lưu tất cả một lần</p></div>
+            <div class="sheet-actions">
+              <button class="secondary-btn" id="bulkGenerateBtn">Tạo mẫu theo kỳ</button>
+              <button class="primary-btn" id="bulkSaveBtn">Lưu tất cả</button>
+            </div>
+          </div>
+          <div class="sheet-toolbar">
+            <label><span>Kiểu nhập</span><select class="input" id="bulkMode"><option value="day">Theo ngày</option><option value="week">Theo tuần</option><option value="month">Theo tháng</option><option value="year">Theo năm</option></select></label>
+            <label><span>Ngày tham chiếu</span><input class="input" id="bulkAnchor" type="date" /></label>
+            <div class="sheet-period-info"><span>Kỳ đang nhập</span><strong id="bulkPeriodLabel"></strong></div>
+            <button class="secondary-btn" id="bulkAddRowBtn">＋ Thêm dòng</button>
+          </div>
+          <div class="excel-wrap">
+            <table class="excel-table bulk-table">
+              <thead><tr><th>#</th><th>Ngày</th><th>Giờ</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th>Số tiền (VNĐ)</th><th></th></tr></thead>
+              <tbody id="bulkBody"></tbody>
+              <tfoot><tr><th colspan="6">TỔNG ĐANG NHẬP</th><th id="bulkDraftTotal" class="amount-cell">0 ₫</th><th></th></tr></tfoot>
+            </table>
+          </div>
+          <div class="sheet-footnote">Các dòng không có số tiền sẽ được bỏ qua. Ngày nhập phải nằm trong kỳ đã chọn.</div>
+        </article>
+      </section>
+
+      <section class="view" id="summaryView">
+        <article class="panel sheet-panel">
+          <div class="panel-head sheet-head">
+            <div><h2>Bảng tổng chi kiểu Excel</h2><p>Mỗi cột tự tính tổng và cập nhật ngay sau khi thêm, sửa hoặc xóa dữ liệu</p></div>
+            <div class="summary-mode-tabs" id="summaryModeTabs">
+              <button class="summary-tab active" data-summary-mode="day">Ngày</button>
+              <button class="summary-tab" data-summary-mode="week">Tuần</button>
+              <button class="summary-tab" data-summary-mode="month">Tháng</button>
+              <button class="summary-tab" data-summary-mode="year">Năm</button>
+            </div>
+          </div>
+          <div class="summary-toolbar">
+            <button class="icon-btn" id="summaryPrevBtn">←</button>
+            <div class="summary-period-label"><span id="summaryEyebrow">Bảng theo ngày</span><strong id="summaryPeriodLabel"></strong></div>
+            <button class="icon-btn" id="summaryNextBtn">→</button>
+            <button class="secondary-btn" id="summaryCurrentBtn">Hiện tại</button>
+          </div>
+          <div class="excel-wrap summary-excel-wrap">
+            <table class="excel-table summary-table" id="summaryTable"></table>
+          </div>
+          <div class="sheet-footnote">Hàng cuối <b>TỔNG CHI</b> là tổng tự động của từng cột thời gian; cột cuối là tổng của từng danh mục.</div>
         </article>
       </section>
 

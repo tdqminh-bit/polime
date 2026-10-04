@@ -29,6 +29,9 @@ D. Chức năng đã có
 - Đăng ký / đăng nhập / đăng xuất bằng email + mật khẩu khi cấu hình Supabase.
 - Tự đề nghị chuyển dữ liệu dùng thử lên cloud sau lần đăng nhập đầu tiên.
 - Thêm / sửa / xóa chi tiêu.
+- Nhập nhiều khoản dạng bảng kiểu Excel theo Ngày / Tuần / Tháng / Năm và lưu hàng loạt.
+- Bảng tổng hợp Excel theo Ngày / Tuần / Tháng / Năm; hàng cuối tự tính tổng từng cột và cột cuối tự tính tổng từng danh mục.
+- Hiệu ứng chuyển cảnh, modal, hover, hàng bảng và thao tác được làm mượt hơn.
 - Nhập nhanh: "50000 ăn sáng", "120k xăng xe", "1.2tr mua đồ".
 - Tự đoán một số danh mục từ nội dung nhập nhanh.
 - Thêm / xóa danh mục.
