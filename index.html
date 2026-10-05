@@ -70,14 +70,16 @@
       </div>
 
       <nav class="nav-list" aria-label="Điều hướng chính">
-        <button class="nav-item active" data-view="dashboard"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-home"></use></svg></span><span>Tổng quan</span></button>
-        <button class="nav-item" data-view="day"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-calendar"></use></svg></span><span>Hôm nay</span></button>
-        <button class="nav-item" data-view="week"><span class="nav-icon nav-icon-sun"><svg aria-hidden="true"><use href="#i-sun"></use></svg></span><span>Tuần</span></button>
-        <button class="nav-item" data-view="month"><span class="nav-icon nav-icon-moon"><svg aria-hidden="true"><use href="#i-moon"></use></svg></span><span>Tháng</span></button>
-        <button class="nav-item" data-view="year"><span class="nav-icon nav-icon-globe"><svg aria-hidden="true"><use href="#i-globe"></use></svg></span><span>Năm</span></button>
-        <button class="nav-item" data-view="summary"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-table"></use></svg></span><span>Bảng tổng hợp</span></button>
-        <button class="nav-item" data-view="history"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-history"></use></svg></span><span>Lịch sử</span></button>
-        <button class="nav-item" data-view="categories"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-grid"></use></svg></span><span>Danh mục</span></button>
+        <button class="nav-item nav-overview active" data-view="dashboard"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-home"></use></svg></span><span class="nav-label">Tổng quan</span></button>
+        <div class="nav-section-label">Thời gian</div>
+        <button class="nav-item" data-view="day"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-calendar"></use></svg></span><span class="nav-label">Hôm nay</span></button>
+        <button class="nav-item" data-view="week"><span class="nav-icon nav-icon-sun"><svg aria-hidden="true"><use href="#i-sun"></use></svg></span><span class="nav-label">Tuần</span></button>
+        <button class="nav-item" data-view="month"><span class="nav-icon nav-icon-moon"><svg aria-hidden="true"><use href="#i-moon"></use></svg></span><span class="nav-label">Tháng</span></button>
+        <button class="nav-item" data-view="year"><span class="nav-icon nav-icon-globe"><svg aria-hidden="true"><use href="#i-globe"></use></svg></span><span class="nav-label">Năm</span></button>
+        <div class="nav-section-label">Quản lý</div>
+        <button class="nav-item" data-view="summary"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-table"></use></svg></span><span class="nav-label">Bảng tổng hợp</span></button>
+        <button class="nav-item" data-view="history"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-history"></use></svg></span><span class="nav-label">Lịch sử</span></button>
+        <button class="nav-item" data-view="categories"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-grid"></use></svg></span><span class="nav-label">Danh mục</span></button>
       </nav>
 
       <div class="sidebar-bottom">
@@ -93,6 +95,7 @@
         <button class="secondary-btn full hidden" id="logoutBtn">Đăng xuất</button>
       </div>
     </aside>
+    <button class="sidebar-scrim" id="sidebarScrim" aria-label="Đóng menu"></button>
 
     <main class="main-content">
       <header class="topbar">
