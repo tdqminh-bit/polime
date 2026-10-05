@@ -510,6 +510,21 @@ function bind(){
   $('#registerForm').addEventListener('submit',async e=>{e.preventDefault();if(!state.supabase)return toast('Chưa cấu hình Supabase trong config.js.','error'); const p=$('#registerPassword').value;if(p!==$('#registerPassword2').value)return toast('Hai mật khẩu không khớp.','error'); const {data,error}=await state.supabase.auth.signUp({email:$('#registerEmail').value.trim(),password:p}); if(error)return toast(error.message,'error'); if(data.session) toast('Đăng ký thành công.','success'); else toast('Đã tạo tài khoản. Kiểm tra email để xác nhận nếu Supabase đang bật xác thực email.','success');});
   window.addEventListener('offline',()=>{ if(state.mode==='cloud'){state.syncState='error';updateSyncUI();toast('Mất kết nối mạng. Chưa thể ghi dữ liệu lên server.','error');} });
   window.addEventListener('online',async()=>{ if(state.mode==='cloud'){try{await loadCloud();renderAll();toast('Đã kết nối lại Supabase.','success');}catch{}} });
+  // v4.4: charts resize from their own card size, not only from the browser window.
+  if('ResizeObserver' in window){
+    let raf=0;
+    const ro=new ResizeObserver(()=>{
+      cancelAnimationFrame(raf);
+      raf=requestAnimationFrame(()=>{
+        state.charts.daily?.resize();
+        state.charts.category?.resize();
+      });
+    });
+    $$('.chart-panel').forEach(el=>ro.observe(el));
+  }
+  window.addEventListener('resize',()=>{
+    if(window.innerWidth>1100) $('#sidebar')?.classList.remove('open');
+  },{passive:true});
 }
 
 async function init(){

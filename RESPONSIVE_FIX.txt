@@ -1,0 +1,10 @@
+Quản Lý Polime v4.4 — Object Responsive Fix
+
+- Sidebar cuộn toàn bộ, không còn vùng Đăng nhập/Đăng xuất bị kẹt ở đáy.
+- Tại viewport/zoom tương đương <= 1100 CSS px, sidebar chuyển sang drawer.
+- Card tổng quan dùng auto-fit, tự đổi số cột theo vùng chứa.
+- Hai biểu đồ là 2 object độc lập; thiếu chỗ sẽ tự xuống hàng, không bị đẩy ra ngoài màn hình.
+- Canvas được ResizeObserver theo kích thước card.
+- Bảng rộng chỉ cuộn bên trong bảng, không kéo vỡ cả trang.
+- Topbar, period toolbar, filter, category và modal đều reflow theo container.
+- 4K/8K giữ UI ở kích thước đọc được, ưu tiên thêm không gian thay vì phóng sidebar quá lớn.
