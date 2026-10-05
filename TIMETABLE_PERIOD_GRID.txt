@@ -1,0 +1,8 @@
+QUẢN LÝ POLIME v4.6 - PERIOD GRID
+
+- Cột trái hiển thị đủ Tiết 1–17 và giờ bắt đầu/kết thúc theo bảng giờ học trường cung cấp.
+- Lưới thời khóa biểu dùng 17 hàng tiết thật.
+- Box môn học span đúng số tiết: 1–3 = 3 hàng, 1–6 = 6 hàng (cao gấp đôi), 7–10 = 4 hàng, v.v.
+- Ranh giới Sáng/Chiều/Tối được đánh dấu tại tiết 1, 7, 14.
+- Hiển thị thời gian tổng của môn ngay trên card.
+- Giữ dữ liệu môn học dạng object, không dùng ảnh lịch.

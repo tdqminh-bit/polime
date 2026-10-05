@@ -30,50 +30,64 @@ const SCHOOL_TIMETABLE = {
     {key:'sat', label:'Thứ 7', date:'10/10/2026'},
     {key:'sun', label:'Chủ nhật', date:'11/10/2026'}
   ],
-  sessions: [
-    {key:'morning', label:'Sáng'},
-    {key:'afternoon', label:'Chiều'},
-    {key:'evening', label:'Tối'}
+  periods: [
+    {n:1, start:'07:00', end:'07:45', breakAfter:'05', session:'morning', sessionLabel:'Sáng'},
+    {n:2, start:'07:50', end:'08:35', breakAfter:'05', session:'morning'},
+    {n:3, start:'08:40', end:'09:25', breakAfter:'05', session:'morning'},
+    {n:4, start:'09:30', end:'10:15', breakAfter:'05', session:'morning'},
+    {n:5, start:'10:20', end:'11:05', breakAfter:'05', session:'morning'},
+    {n:6, start:'11:10', end:'11:55', breakAfter:'35', session:'morning'},
+    {n:7, start:'12:30', end:'13:15', breakAfter:'05', session:'afternoon', sessionLabel:'Chiều'},
+    {n:8, start:'13:20', end:'14:05', breakAfter:'05', session:'afternoon'},
+    {n:9, start:'14:10', end:'14:55', breakAfter:'05', session:'afternoon'},
+    {n:10, start:'15:00', end:'15:45', breakAfter:'05', session:'afternoon'},
+    {n:11, start:'15:50', end:'16:35', breakAfter:'05', session:'afternoon'},
+    {n:12, start:'16:40', end:'17:25', breakAfter:'05', session:'afternoon'},
+    {n:13, start:'17:30', end:'18:15', breakAfter:'00', session:'afternoon'},
+    {n:14, start:'18:15', end:'19:00', breakAfter:'00', session:'evening', sessionLabel:'Tối'},
+    {n:15, start:'19:00', end:'19:45', breakAfter:'05', session:'evening'},
+    {n:16, start:'19:50', end:'20:35', breakAfter:'00', session:'evening'},
+    {n:17, start:'20:35', end:'21:20', breakAfter:'00', session:'evening'}
   ],
   classes: [
     {
       id:'nlxla-0610', day:'tue', session:'morning', subject:'Nhập môn xử lý ảnh',
-      classCode:'DHTI17A5HN', courseCode:'010100277605', periods:'4 - 6',
+      classCode:'DHTI17A5HN', courseCode:'010100277605', periodStart:4, periodEnd:6, periods:'4 - 6',
       room:'Phòng học/H.A9-402', teacher:'Hoàng Thị Minh Châu', tone:'standard'
     },
     {
       id:'attt-0810', day:'thu', session:'morning', subject:'An toàn thông tin',
-      classCode:'DHTI18A2HN', courseCode:'010100132604', periods:'1 - 3',
+      classCode:'DHTI18A2HN', courseCode:'010100132604', periodStart:1, periodEnd:3, periods:'1 - 3',
       room:'Phòng học/H.A9-408', teacher:'Nguyễn Thu Hiền', tone:'standard'
     },
     {
       id:'thnet-0910', day:'fri', session:'morning', subject:'Thực hành lập trình .Net',
-      classCode:'DHTI17A5HN', courseCode:'010100277311', periods:'1 - 6',
+      classCode:'DHTI17A5HN', courseCode:'010100277311', periodStart:1, periodEnd:6, periods:'1 - 6',
       room:'Phòng hiệu năng cao 02/H.A9-507', teacher:'Lê Thị Thu Hiền', tone:'practical'
     },
     {
       id:'ktdts-1010', day:'sat', session:'morning', subject:'Kỹ thuật điện tử số',
-      classCode:'DHTI17A5HN', courseCode:'010100127506', periods:'1 - 3',
+      classCode:'DHTI17A5HN', courseCode:'010100127506', periodStart:1, periodEnd:3, periods:'1 - 3',
       room:'Phòng học/H.A9-406', teacher:'Nguyễn Quang Huy', tone:'standard'
     },
     {
       id:'xlnntn-0510', day:'mon', session:'afternoon', subject:'Xử lý ngôn ngữ tự nhiên',
-      classCode:'DHTI17A4HN', courseCode:'010100279301', periods:'7 - 10',
+      classCode:'DHTI17A4HN', courseCode:'010100279301', periodStart:7, periodEnd:10, periods:'7 - 10',
       room:'https://meet.google.com/kyr-bwsk-mzr', teacher:'Bùi Văn Tân', tone:'standard'
     },
     {
       id:'da2-0610', day:'tue', session:'afternoon', subject:'Đồ án 2',
-      classCode:'DHTI17A5HN', courseCode:'010100185410', periods:'8 - 11',
+      classCode:'DHTI17A5HN', courseCode:'010100185410', periodStart:8, periodEnd:11, periods:'8 - 11',
       room:'Phòng Lab Draytek 01/H.A9-512', teacher:'Trần Văn Trường', tone:'practical'
     },
     {
       id:'tthcm-0710', day:'wed', session:'afternoon', subject:'Tư tưởng Hồ Chí Minh',
-      classCode:'DHTI17A5HN', courseCode:'010100057351', periods:'10 - 12',
+      classCode:'DHTI17A5HN', courseCode:'010100057351', periodStart:10, periodEnd:12, periods:'10 - 12',
       room:'https://meet.google.com/fff-ztny-ist', teacher:'Lê Thị Lý', tone:'standard'
     },
     {
       id:'ltxldl-0910', day:'fri', session:'afternoon', subject:'Lập trình xử lý dữ liệu với Python',
-      classCode:'DHTI17A4HN', courseCode:'010100279101', periods:'7 - 9',
+      classCode:'DHTI17A4HN', courseCode:'010100279101', periodStart:7, periodEnd:9, periods:'7 - 9',
       room:'Phòng học/H.A9-406', teacher:'Đoàn Tuấn Nam', tone:'standard'
     }
   ]
@@ -544,13 +558,19 @@ function timetableRoomHTML(room){
   if(/^https:\/\//i.test(room)) return `<a class="timetable-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`;
   return safe;
 }
-function timetableCardHTML(item){
-  return `<article class="class-card ${item.tone==='practical'?'is-practical':''}" data-class-id="${escapeHtml(item.id)}">
+function timetableCardHTML(item, dayIndex){
+  const startPeriod=Number(item.periodStart)||1;
+  const endPeriod=Number(item.periodEnd)||startPeriod;
+  const span=Math.max(1,endPeriod-startPeriod+1);
+  const first=SCHOOL_TIMETABLE.periods.find(p=>p.n===startPeriod);
+  const last=SCHOOL_TIMETABLE.periods.find(p=>p.n===endPeriod);
+  const timeLabel=first&&last?`${first.start} – ${last.end}`:'';
+  return `<article class="class-card ${item.tone==='practical'?'is-practical':''}" data-class-id="${escapeHtml(item.id)}" data-period-span="${span}" style="grid-column:${dayIndex+2};grid-row:${startPeriod+1} / ${endPeriod+2};--class-span:${span}">
     <div class="class-card-accent"></div>
+    <div class="class-topline"><span>Tiết ${startPeriod}–${endPeriod}</span><time>${escapeHtml(timeLabel)}</time></div>
     <h3>${escapeHtml(item.subject)}</h3>
     <div class="class-code">${escapeHtml(item.classCode)}</div>
     <div class="class-course">${escapeHtml(item.courseCode)}</div>
-    <div class="class-meta"><span>Tiết</span><b>${escapeHtml(item.periods)}</b></div>
     <div class="class-meta class-room"><span>Phòng</span><b>${timetableRoomHTML(item.room)}</b></div>
     <div class="class-meta"><span>GV</span><b>${escapeHtml(item.teacher)}</b></div>
   </article>`;
@@ -559,15 +579,22 @@ function renderTimetable(){
   const grid=$('#schoolTimetableGrid'); if(!grid) return;
   const nowKey=localISODate(new Date());
   const dateKeyFromDisplay=d=>{const [dd,mm,yyyy]=d.split('/');return `${yyyy}-${mm}-${dd}`};
-  let html='<div class="timetable-corner">Ca học</div>';
-  html+=SCHOOL_TIMETABLE.days.map(day=>`<div class="timetable-day-head ${dateKeyFromDisplay(day.date)===nowKey?'is-today':''}"><span>${escapeHtml(day.label)}</span><strong>${escapeHtml(day.date)}</strong>${dateKeyFromDisplay(day.date)===nowKey?'<em>Hôm nay</em>':''}</div>`).join('');
-  SCHOOL_TIMETABLE.sessions.forEach(session=>{
-    html+=`<div class="timetable-session-label session-${session.key}"><span>${escapeHtml(session.label)}</span></div>`;
-    SCHOOL_TIMETABLE.days.forEach(day=>{
-      const items=SCHOOL_TIMETABLE.classes.filter(x=>x.day===day.key&&x.session===session.key);
-      html+=`<div class="timetable-cell ${dateKeyFromDisplay(day.date)===nowKey?'is-today':''} session-${session.key}" data-day="${day.key}" data-session="${session.key}">${items.map(timetableCardHTML).join('')}</div>`;
+  let html='<div class="timetable-corner"><strong>Tiết</strong><span>Thời gian</span></div>';
+  html+=SCHOOL_TIMETABLE.days.map((day,i)=>`<div class="timetable-day-head ${dateKeyFromDisplay(day.date)===nowKey?'is-today':''}" style="grid-column:${i+2};grid-row:1"><span>${escapeHtml(day.label)}</span><strong>${escapeHtml(day.date)}</strong>${dateKeyFromDisplay(day.date)===nowKey?'<em>Hôm nay</em>':''}</div>`).join('');
+
+  SCHOOL_TIMETABLE.periods.forEach(period=>{
+    const boundary=period.n===7||period.n===14?' session-boundary':'';
+    const pause=period.breakAfter!=='00'?`<small>Nghỉ ${Number(period.breakAfter)}′</small>`:'';
+    html+=`<div class="timetable-period-label session-${period.session}${boundary}" style="grid-column:1;grid-row:${period.n+1}">${period.sessionLabel?`<b class="period-session">${escapeHtml(period.sessionLabel)}</b>`:''}<div class="period-main"><strong>Tiết ${period.n}</strong><span>${period.start}–${period.end}</span>${pause}</div></div>`;
+    SCHOOL_TIMETABLE.days.forEach((day,dayIndex)=>{
+      html+=`<div class="timetable-slot session-${period.session}${boundary} ${dateKeyFromDisplay(day.date)===nowKey?'is-today':''}" style="grid-column:${dayIndex+2};grid-row:${period.n+1}" data-day="${day.key}" data-period="${period.n}"></div>`;
     });
   });
+
+  html+=SCHOOL_TIMETABLE.classes.map(item=>{
+    const dayIndex=SCHOOL_TIMETABLE.days.findIndex(day=>day.key===item.day);
+    return timetableCardHTML(item,Math.max(0,dayIndex));
+  }).join('');
   grid.innerHTML=html;
   const range=$('#timetableRangeLabel'); if(range) range.textContent=`${SCHOOL_TIMETABLE.days[0].date} – ${SCHOOL_TIMETABLE.days.at(-1).date}`;
   const count=$('#timetableClassCount'); if(count) count.textContent=`${SCHOOL_TIMETABLE.classes.length} môn học`;
