@@ -47,6 +47,10 @@
       <rect x="3" y="4" width="18" height="16" rx="2.7"/>
       <path d="M3 9h18M8.8 9v11M15.2 9v11M8.8 14.4h6.4"/>
     </symbol>
+    <symbol id="i-timetable" viewBox="0 0 24 24">
+      <rect x="3" y="4.5" width="18" height="16" rx="3"/>
+      <path d="M7.2 2.8v4M16.8 2.8v4M3 9h18M7.5 12.5h3M13.5 12.5h3M7.5 16h3M13.5 16h3"/>
+    </symbol>
     <symbol id="i-history" viewBox="0 0 24 24">
       <path d="M4.6 7.6A8.5 8.5 0 1 1 3.5 14"/>
       <path d="M4.6 3.8v3.8h3.8M12 7.6v5l3.4 2"/>
@@ -77,6 +81,7 @@
         <button class="nav-item" data-view="month"><span class="nav-icon nav-icon-moon"><svg aria-hidden="true"><use href="#i-moon"></use></svg></span><span class="nav-label">Tháng</span></button>
         <button class="nav-item" data-view="year"><span class="nav-icon nav-icon-globe"><svg aria-hidden="true"><use href="#i-globe"></use></svg></span><span class="nav-label">Năm</span></button>
         <div class="nav-section-label">Quản lý</div>
+        <button class="nav-item" data-view="timetable"><span class="nav-icon nav-icon-timetable"><svg aria-hidden="true"><use href="#i-timetable"></use></svg></span><span class="nav-label">Thời khóa biểu</span></button>
         <button class="nav-item" data-view="summary"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-table"></use></svg></span><span class="nav-label">Bảng tổng hợp</span></button>
         <button class="nav-item" data-view="history"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-history"></use></svg></span><span class="nav-label">Lịch sử</span></button>
         <button class="nav-item" data-view="categories"><span class="nav-icon"><svg aria-hidden="true"><use href="#i-grid"></use></svg></span><span class="nav-label">Danh mục</span></button>
@@ -166,6 +171,38 @@
         <article class="panel">
           <div class="panel-head"><div><h2>Các khoản chi</h2><p id="periodExpenseSubtitle"></p></div></div>
           <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Danh mục</th><th>Nội dung</th><th>Thanh toán</th><th class="money-col">Số tiền</th><th></th></tr></thead><tbody id="periodBody"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="timetableView">
+        <article class="panel timetable-panel">
+          <div class="panel-head timetable-head">
+            <div>
+              <div class="timetable-kicker">LỊCH HỌC TRONG TUẦN</div>
+              <h2>Thời khóa biểu</h2>
+              <p id="timetableRangeLabel">05/10/2026 – 11/10/2026</p>
+            </div>
+            <div class="timetable-head-actions">
+              <span class="timetable-count" id="timetableClassCount">8 môn học</span>
+              <span class="timetable-source">Dữ liệu đã nhập từ lịch trường</span>
+            </div>
+          </div>
+
+          <div class="timetable-week-strip">
+            <div class="timetable-week-copy">
+              <span>Tuần đang xem</span>
+              <strong>05/10/2026 → 11/10/2026</strong>
+            </div>
+            <div class="timetable-legend">
+              <span><i class="legend-dot standard"></i> Lý thuyết / học thường</span>
+              <span><i class="legend-dot practical"></i> Thực hành / đồ án</span>
+            </div>
+          </div>
+
+          <div class="school-timetable-scroll" aria-label="Thời khóa biểu tuần 05/10/2026 đến 11/10/2026">
+            <div class="school-timetable-grid" id="schoolTimetableGrid"></div>
+          </div>
+          <div class="timetable-footnote">Mỗi môn học là một object dữ liệu riêng trong chương trình. Các đường dẫn Google Meet có thể bấm để mở trực tiếp.</div>
         </article>
       </section>
 

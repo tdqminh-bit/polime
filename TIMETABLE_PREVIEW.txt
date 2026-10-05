@@ -1,0 +1,9 @@
+QUẢN LÝ POLIME v4.5 - THỜI KHÓA BIỂU
+
+- Đã thêm menu "Thời khóa biểu".
+- Dữ liệu tuần 05/10/2026 - 11/10/2026 được nhập thành object thật trong app.js, không dùng ảnh.
+- 8 môn học từ ảnh tham chiếu đã được nhập đủ tên môn, mã lớp, mã học phần, tiết, phòng/link và giảng viên.
+- Link Google Meet là link bấm được.
+- Layout thời khóa biểu là một object cuộn riêng trên màn nhỏ; không làm tràn toàn bộ website.
+- Hai môn/hoạt động màu xanh được giữ theo ảnh tham chiếu: Đồ án 2 và Thực hành lập trình .Net.
+- Supabase hiện tại của Quản Lý Polime được giữ nguyên.

@@ -927,3 +927,119 @@ img,svg,canvas{max-width:100%}
   .chart-panel{min-height:480px}
   .chart-wrap{height:370px}
 }
+
+/* =========================================================
+   v4.5 — THỜI KHÓA BIỂU: REAL DATA OBJECTS, NOT AN IMAGE
+   ========================================================= */
+.nav-item[data-view="timetable"] .nav-icon{color:#2789d8}
+.nav-item[data-view="timetable"].active .nav-icon{
+  color:#fff;background:linear-gradient(145deg,#35a9f4,#5567f5);
+  box-shadow:0 7px 18px rgba(53,134,244,.26),inset 0 1px 0 rgba(255,255,255,.28)
+}
+.timetable-panel{
+  width:100%;min-width:0;padding:clamp(15px,1.55vw,24px);border-radius:var(--object-radius);overflow:hidden;
+}
+.timetable-head{align-items:center;gap:14px}
+.timetable-kicker{font-size:9px;font-weight:850;letter-spacing:.16em;color:var(--primary);margin-bottom:5px}
+.timetable-head h2{font-size:clamp(20px,1.7vw,27px);letter-spacing:-.035em;margin:0}
+.timetable-head p{margin-top:4px}
+.timetable-head-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
+.timetable-count,.timetable-source{
+  min-height:32px;display:inline-flex;align-items:center;padding:7px 11px;border-radius:11px;font-size:10px;font-weight:750;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--panel-2) 78%,transparent);color:var(--muted)
+}
+.timetable-count{color:var(--primary);background:color-mix(in srgb,var(--primary-soft) 82%,var(--panel));border-color:color-mix(in srgb,var(--primary) 13%,var(--line))}
+.timetable-week-strip{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin:15px 0 12px;padding:11px 13px;border:1px solid color-mix(in srgb,var(--line) 83%,transparent);border-radius:15px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--panel-2) 86%,transparent),color-mix(in srgb,var(--primary-soft) 20%,transparent))
+}
+.timetable-week-copy{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;min-width:0}
+.timetable-week-copy span{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:800}
+.timetable-week-copy strong{font-size:11px;color:var(--text)}
+.timetable-legend{display:flex;gap:13px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:9px;font-weight:650}
+.timetable-legend span{display:inline-flex;align-items:center;gap:6px}
+.legend-dot{width:8px;height:8px;border-radius:99px;display:inline-block;background:#dfe7ef;border:1px solid rgba(86,111,138,.18)}
+.legend-dot.practical{background:#67cf34;border-color:#4bb91d}
+.school-timetable-scroll{
+  width:100%;max-width:100%;min-width:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  border:1px solid color-mix(in srgb,var(--line) 91%,transparent);border-radius:18px;
+  background:color-mix(in srgb,var(--panel) 97%,transparent);scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--primary) 22%,var(--line)) transparent;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25)
+}
+.school-timetable-grid{
+  display:grid;grid-template-columns:74px repeat(7,minmax(155px,1fr));grid-template-rows:auto minmax(270px,auto) minmax(270px,auto) minmax(80px,auto);
+  min-width:1160px;width:100%;position:relative;
+  background-image:linear-gradient(color-mix(in srgb,var(--line) 35%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--line) 35%,transparent) 1px,transparent 1px);
+  background-size:16px 16px;
+}
+.timetable-corner,.timetable-day-head,.timetable-session-label,.timetable-cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.timetable-corner{
+  position:sticky;left:0;top:0;z-index:8;display:grid;place-items:center;padding:12px 6px;background:color-mix(in srgb,var(--panel-2) 92%,var(--panel));
+  color:#1796e8;font-size:10px;font-weight:850;text-align:center
+}
+.timetable-day-head{
+  position:sticky;top:0;z-index:7;min-height:64px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  background:color-mix(in srgb,var(--panel-2) 93%,var(--panel));text-align:center
+}
+.timetable-day-head span{font-size:11px;font-weight:850;color:#1597e7}
+.timetable-day-head strong{font-size:10px;color:#1597e7}
+.timetable-day-head em{font-style:normal;font-size:7px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--primary);padding:3px 6px;border-radius:99px;margin-top:2px}
+.timetable-day-head.is-today{background:linear-gradient(180deg,color-mix(in srgb,var(--primary-soft) 72%,var(--panel)),color-mix(in srgb,var(--panel-2) 92%,var(--panel)))}
+.timetable-session-label{
+  position:sticky;left:0;z-index:6;display:grid;place-items:center;padding:8px 5px;background:#fffed1;color:#667489;font-size:11px;font-weight:850;text-align:center
+}
+[data-theme="dark"] .timetable-session-label{background:#34331d;color:#d7d3a4}
+.timetable-cell{position:relative;min-width:0;padding:10px;display:flex;flex-direction:column;align-items:stretch;gap:9px;background:color-mix(in srgb,var(--panel) 91%,transparent)}
+.timetable-cell.is-today{background:linear-gradient(180deg,color-mix(in srgb,var(--primary-soft) 16%,var(--panel)),color-mix(in srgb,var(--panel) 93%,transparent))}
+.timetable-cell.session-evening{min-height:80px}
+.class-card{
+  position:relative;isolation:isolate;min-width:0;width:100%;padding:10px 10px 10px 12px;border-radius:8px;
+  background:linear-gradient(145deg,#eef3f7,#e4ebf1);color:#123f66;border:1px solid #cbd7e0;
+  box-shadow:0 6px 14px rgba(39,66,92,.075),inset 0 1px 0 rgba(255,255,255,.65);
+  transition:transform .24s var(--ease-spring),box-shadow .24s ease,border-color .24s ease;
+  overflow:hidden;animation:timetableCardIn .38s var(--ease-smooth) both
+}
+.class-card:nth-child(2){animation-delay:.04s}.class-card:nth-child(3){animation-delay:.08s}
+@keyframes timetableCardIn{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:none}}
+.class-card-accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:#9db4c8;opacity:.8}
+.class-card h3{margin:0 0 4px;font-size:11.5px;line-height:1.28;letter-spacing:-.018em;color:#0b3d65;font-weight:850;overflow-wrap:anywhere}
+.class-code,.class-course{font-size:9.5px;line-height:1.45;color:#164f7c;overflow-wrap:anywhere}
+.class-course{margin-bottom:4px}
+.class-meta{display:grid;grid-template-columns:34px minmax(0,1fr);gap:3px;font-size:9.5px;line-height:1.45;color:#164f7c;min-width:0}
+.class-meta span{color:#4e718f;font-weight:650}.class-meta b{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.class-card.is-practical{background:linear-gradient(145deg,#72d739,#5fca2d);border-color:#57bd28;color:#0e461b;box-shadow:0 8px 18px rgba(77,185,36,.16),inset 0 1px 0 rgba(255,255,255,.24)}
+.class-card.is-practical .class-card-accent{background:#247f23;opacity:.45}
+.class-card.is-practical h3,.class-card.is-practical .class-code,.class-card.is-practical .class-course,.class-card.is-practical .class-meta{color:#0a4217}
+.class-card.is-practical .class-meta span{color:#256226}
+.timetable-link{color:inherit;text-decoration:none;border-bottom:1px dashed currentColor;word-break:break-word}
+.timetable-link:hover{opacity:.74}
+.timetable-footnote{padding:10px 3px 0;color:var(--muted);font-size:9px}
+@media (hover:hover){
+  .class-card:hover{transform:translate3d(0,-3px,0) scale(1.012);z-index:2;box-shadow:0 14px 30px rgba(25,56,84,.16);border-color:#afc2d1}
+  .class-card.is-practical:hover{box-shadow:0 15px 32px rgba(76,178,37,.24);border-color:#4aa921}
+}
+@media (min-width:1500px){
+  .school-timetable-grid{grid-template-columns:78px repeat(7,minmax(0,1fr));min-width:0}
+  .class-card h3{font-size:12px}.class-code,.class-course,.class-meta{font-size:10px}
+}
+@media (max-width:1100px){
+  .school-timetable-grid{min-width:1120px}
+}
+@media (max-width:760px){
+  .timetable-panel{padding:13px}
+  .timetable-head-actions{width:100%;justify-content:flex-start;margin-left:0}
+  .timetable-week-strip{align-items:flex-start}
+  .timetable-legend{width:100%}
+  .school-timetable-grid{grid-template-columns:64px repeat(7,150px);min-width:1114px;grid-template-rows:auto minmax(245px,auto) minmax(245px,auto) minmax(76px,auto)}
+  .timetable-corner{left:0}
+  .timetable-session-label{left:0}
+}
+@media (max-width:500px){
+  .timetable-source{display:none}
+  .timetable-week-copy{align-items:flex-start;flex-direction:column;gap:3px}
+  .timetable-legend{font-size:8px;gap:8px}
+  .school-timetable-grid{grid-template-columns:58px repeat(7,145px);min-width:1073px}
+  .timetable-cell{padding:8px}.class-card{padding:9px 8px 9px 10px}.class-card h3{font-size:10.5px}
+}
+@media (prefers-reduced-motion:reduce){.class-card{animation:none}.class-card:hover{transform:none}}

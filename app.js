@@ -16,6 +16,69 @@ const CATEGORY_HINTS = {
   'Gia đình':['gia đình','bố','mẹ','con'],
 };
 
+// Thời khóa biểu mẫu được nhập thành dữ liệu thật từ ảnh lịch trường người dùng cung cấp.
+// Mỗi môn là một object độc lập để sau này có thể thay nguồn này bằng API/scraper của trường.
+const SCHOOL_TIMETABLE = {
+  weekStart: '2026-10-05',
+  weekEnd: '2026-10-11',
+  days: [
+    {key:'mon', label:'Thứ 2', date:'05/10/2026'},
+    {key:'tue', label:'Thứ 3', date:'06/10/2026'},
+    {key:'wed', label:'Thứ 4', date:'07/10/2026'},
+    {key:'thu', label:'Thứ 5', date:'08/10/2026'},
+    {key:'fri', label:'Thứ 6', date:'09/10/2026'},
+    {key:'sat', label:'Thứ 7', date:'10/10/2026'},
+    {key:'sun', label:'Chủ nhật', date:'11/10/2026'}
+  ],
+  sessions: [
+    {key:'morning', label:'Sáng'},
+    {key:'afternoon', label:'Chiều'},
+    {key:'evening', label:'Tối'}
+  ],
+  classes: [
+    {
+      id:'nlxla-0610', day:'tue', session:'morning', subject:'Nhập môn xử lý ảnh',
+      classCode:'DHTI17A5HN', courseCode:'010100277605', periods:'4 - 6',
+      room:'Phòng học/H.A9-402', teacher:'Hoàng Thị Minh Châu', tone:'standard'
+    },
+    {
+      id:'attt-0810', day:'thu', session:'morning', subject:'An toàn thông tin',
+      classCode:'DHTI18A2HN', courseCode:'010100132604', periods:'1 - 3',
+      room:'Phòng học/H.A9-408', teacher:'Nguyễn Thu Hiền', tone:'standard'
+    },
+    {
+      id:'thnet-0910', day:'fri', session:'morning', subject:'Thực hành lập trình .Net',
+      classCode:'DHTI17A5HN', courseCode:'010100277311', periods:'1 - 6',
+      room:'Phòng hiệu năng cao 02/H.A9-507', teacher:'Lê Thị Thu Hiền', tone:'practical'
+    },
+    {
+      id:'ktdts-1010', day:'sat', session:'morning', subject:'Kỹ thuật điện tử số',
+      classCode:'DHTI17A5HN', courseCode:'010100127506', periods:'1 - 3',
+      room:'Phòng học/H.A9-406', teacher:'Nguyễn Quang Huy', tone:'standard'
+    },
+    {
+      id:'xlnntn-0510', day:'mon', session:'afternoon', subject:'Xử lý ngôn ngữ tự nhiên',
+      classCode:'DHTI17A4HN', courseCode:'010100279301', periods:'7 - 10',
+      room:'https://meet.google.com/kyr-bwsk-mzr', teacher:'Bùi Văn Tân', tone:'standard'
+    },
+    {
+      id:'da2-0610', day:'tue', session:'afternoon', subject:'Đồ án 2',
+      classCode:'DHTI17A5HN', courseCode:'010100185410', periods:'8 - 11',
+      room:'Phòng Lab Draytek 01/H.A9-512', teacher:'Trần Văn Trường', tone:'practical'
+    },
+    {
+      id:'tthcm-0710', day:'wed', session:'afternoon', subject:'Tư tưởng Hồ Chí Minh',
+      classCode:'DHTI17A5HN', courseCode:'010100057351', periods:'10 - 12',
+      room:'https://meet.google.com/fff-ztny-ist', teacher:'Lê Thị Lý', tone:'standard'
+    },
+    {
+      id:'ltxldl-0910', day:'fri', session:'afternoon', subject:'Lập trình xử lý dữ liệu với Python',
+      classCode:'DHTI17A4HN', courseCode:'010100279101', periods:'7 - 9',
+      room:'Phòng học/H.A9-406', teacher:'Đoàn Tuấn Nam', tone:'standard'
+    }
+  ]
+};
+
 const state = {
   supabase: null,
   user: null,
@@ -148,7 +211,7 @@ function updateSyncUI(){
   $('#authNote').textContent = cloudConfigured ? 'Server: Supabase Free. Khi đăng nhập, mọi khoản chi và danh mục được lưu vào PostgreSQL; RLS tách dữ liệu theo từng tài khoản.' : 'Chưa cấu hình server. Điền Project URL và Publishable/Anon key trong config.js, sau đó chạy supabase.sql trên Supabase để bật lưu online.';
 }
 
-function renderAll(){ renderCategoriesInForms(); renderDashboard(); renderPeriod(); renderHistory(); renderCategoryManager(); renderSummary(); refreshEntryCategoryOptions(); }
+function renderAll(){ renderCategoriesInForms(); renderDashboard(); renderPeriod(); renderHistory(); renderCategoryManager(); renderSummary(); renderTimetable(); refreshEntryCategoryOptions(); }
 function getRange(mode,cursor){ if(mode==='day') return [startOfDay(cursor),endOfDay(cursor)]; if(mode==='week') return [startOfWeek(cursor),endOfWeek(cursor)]; if(mode==='month') return [startOfMonth(cursor),endOfMonth(cursor)]; return [startOfYear(cursor),endOfYear(cursor)]; }
 function listFor(mode,cursor){ const [a,b]=getRange(mode,cursor); return state.expenses.filter(e=>within(e,a,b)); }
 function pluralCount(n){ return `${n} khoản chi`; }
@@ -476,8 +539,42 @@ function renderSummary(){
 }
 function moveSummary(dir){ const d=new Date(state.summaryCursor),m=state.summaryMode; if(m==='day')d.setDate(d.getDate()+7*dir); else if(m==='week')d.setMonth(d.getMonth()+dir); else if(m==='month')d.setFullYear(d.getFullYear()+dir); else d.setFullYear(d.getFullYear()+5*dir); state.summaryCursor=d; renderSummary(); }
 
+function timetableRoomHTML(room){
+  const safe=escapeHtml(room);
+  if(/^https:\/\//i.test(room)) return `<a class="timetable-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`;
+  return safe;
+}
+function timetableCardHTML(item){
+  return `<article class="class-card ${item.tone==='practical'?'is-practical':''}" data-class-id="${escapeHtml(item.id)}">
+    <div class="class-card-accent"></div>
+    <h3>${escapeHtml(item.subject)}</h3>
+    <div class="class-code">${escapeHtml(item.classCode)}</div>
+    <div class="class-course">${escapeHtml(item.courseCode)}</div>
+    <div class="class-meta"><span>Tiết</span><b>${escapeHtml(item.periods)}</b></div>
+    <div class="class-meta class-room"><span>Phòng</span><b>${timetableRoomHTML(item.room)}</b></div>
+    <div class="class-meta"><span>GV</span><b>${escapeHtml(item.teacher)}</b></div>
+  </article>`;
+}
+function renderTimetable(){
+  const grid=$('#schoolTimetableGrid'); if(!grid) return;
+  const nowKey=localISODate(new Date());
+  const dateKeyFromDisplay=d=>{const [dd,mm,yyyy]=d.split('/');return `${yyyy}-${mm}-${dd}`};
+  let html='<div class="timetable-corner">Ca học</div>';
+  html+=SCHOOL_TIMETABLE.days.map(day=>`<div class="timetable-day-head ${dateKeyFromDisplay(day.date)===nowKey?'is-today':''}"><span>${escapeHtml(day.label)}</span><strong>${escapeHtml(day.date)}</strong>${dateKeyFromDisplay(day.date)===nowKey?'<em>Hôm nay</em>':''}</div>`).join('');
+  SCHOOL_TIMETABLE.sessions.forEach(session=>{
+    html+=`<div class="timetable-session-label session-${session.key}"><span>${escapeHtml(session.label)}</span></div>`;
+    SCHOOL_TIMETABLE.days.forEach(day=>{
+      const items=SCHOOL_TIMETABLE.classes.filter(x=>x.day===day.key&&x.session===session.key);
+      html+=`<div class="timetable-cell ${dateKeyFromDisplay(day.date)===nowKey?'is-today':''} session-${session.key}" data-day="${day.key}" data-session="${session.key}">${items.map(timetableCardHTML).join('')}</div>`;
+    });
+  });
+  grid.innerHTML=html;
+  const range=$('#timetableRangeLabel'); if(range) range.textContent=`${SCHOOL_TIMETABLE.days[0].date} – ${SCHOOL_TIMETABLE.days.at(-1).date}`;
+  const count=$('#timetableClassCount'); if(count) count.textContent=`${SCHOOL_TIMETABLE.classes.length} môn học`;
+}
+
 function setView(view){
-  state.currentView=view; $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); $$('.view').forEach(v=>v.classList.remove('active')); const titles={dashboard:'Tổng quan',day:'Hôm nay',week:'Theo tuần',month:'Theo tháng',year:'Theo năm',summary:'Bảng tổng hợp',history:'Lịch sử',categories:'Danh mục'}; $('#viewTitle').textContent=titles[view]||'Quản Lý Polime'; if(['day','week','month','year'].includes(view)){state.periodMode=view; $('#periodView').classList.add('active'); renderPeriod();} else { const target=$(`#${view}View`); if(target) target.classList.add('active'); } if(view==='summary') renderSummary(); $('#sidebar').classList.remove('open');
+  state.currentView=view; $$('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view)); $$('.view').forEach(v=>v.classList.remove('active')); const titles={dashboard:'Tổng quan',day:'Hôm nay',week:'Theo tuần',month:'Theo tháng',year:'Theo năm',timetable:'Thời khóa biểu',summary:'Bảng tổng hợp',history:'Lịch sử',categories:'Danh mục'}; $('#viewTitle').textContent=titles[view]||'Quản Lý Polime'; if(['day','week','month','year'].includes(view)){state.periodMode=view; $('#periodView').classList.add('active'); renderPeriod();} else { const target=$(`#${view}View`); if(target) target.classList.add('active'); } if(view==='summary') renderSummary(); if(view==='timetable') renderTimetable(); $('#sidebar').classList.remove('open');
 }
 function movePeriod(dir){ const d=new Date(state.periodCursor); if(state.periodMode==='day') d.setDate(d.getDate()+dir); else if(state.periodMode==='week') d.setDate(d.getDate()+7*dir); else if(state.periodMode==='month') d.setMonth(d.getMonth()+dir); else d.setFullYear(d.getFullYear()+dir); state.periodCursor=d; renderPeriod(); }
 
